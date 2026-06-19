@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade">
+	<name>PLG_SYSTEM_CSMCPFORJRELEASEMANAGER</name>
+	<author>Cybersalt</author>
+	<creationDate>2026-06-10</creationDate>
+	<copyright>Copyright (C) 2026 Cybersalt. All rights reserved.</copyright>
+	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+	<authorEmail>support@cybersalt.com</authorEmail>
+	<authorUrl>https://cybersalt.com</authorUrl>
+	<version>1.0.0</version>
+	<description>PLG_SYSTEM_CSMCPFORJRELEASEMANAGER_XML_DESCRIPTION</description>
+
+	<namespace path="src">Cybersalt\Plugin\System\Csmcpforjreleasemanager</namespace>
+
+	<scriptfile>script.php</scriptfile>
+
+	<files>
+		<filename>script.php</filename>
+		<folder plugin="csmcpforjreleasemanager">services</folder>
+		<folder>src</folder>
+	</files>
+
+	<languages>
+		<language tag="en-GB">language/en-GB/plg_system_csmcpforjreleasemanager.ini</language>
+		<language tag="en-GB">language/en-GB/plg_system_csmcpforjreleasemanager.sys.ini</language>
+	</languages>
+
+	<updateservers>
+		<server type="extension" name="MCP add-on for Cybersalt Release Manager">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjreleasemanager</server>
+	</updateservers>
+</extension>

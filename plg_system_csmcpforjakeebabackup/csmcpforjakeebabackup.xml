@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade">
+	<name>PLG_SYSTEM_CSMCPFORJAKEEBABACKUP</name>
+	<author>Cybersalt</author>
+	<creationDate>2026-06-12</creationDate>
+	<copyright>Copyright (C) 2026 Cybersalt. All rights reserved.</copyright>
+	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+	<authorEmail>support@cybersalt.com</authorEmail>
+	<authorUrl>https://cybersalt.com</authorUrl>
+	<version>1.0.0</version>
+	<description>PLG_SYSTEM_CSMCPFORJAKEEBABACKUP_XML_DESCRIPTION</description>
+
+	<namespace path="src">Cybersalt\Plugin\System\Csmcpforjakeebabackup</namespace>
+
+	<scriptfile>script.php</scriptfile>
+
+	<files>
+		<filename>script.php</filename>
+		<folder plugin="csmcpforjakeebabackup">services</folder>
+		<folder>src</folder>
+	</files>
+
+	<languages>
+		<language tag="en-GB">language/en-GB/plg_system_csmcpforjakeebabackup.ini</language>
+		<language tag="en-GB">language/en-GB/plg_system_csmcpforjakeebabackup.sys.ini</language>
+	</languages>
+
+	<updateservers>
+		<server type="extension" name="MCP add-on for Akeeba Backup">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjakeebabackup</server>
+	</updateservers>
+</extension>

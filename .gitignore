@@ -1,0 +1,10 @@
+# Build output
+*.zip
+.build-staging/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

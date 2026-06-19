@@ -1,0 +1,16 @@
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 2, June 1991
+
+ Copyright (C) 1989, 1991 Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+cs-mcp-for-j is licensed under the terms of the GNU General Public License,
+version 2 or any later version, as published by the Free Software Foundation.
+
+Copyright (C) 2026 Cybersalt Consulting Ltd. All rights reserved.
+
+The full text of the GNU General Public License version 2 is available at
+https://www.gnu.org/licenses/old-licenses/gpl-2.0.html and the GNU General
+Public License version 3 at https://www.gnu.org/licenses/gpl-3.0.html.
