@@ -49,6 +49,19 @@ class PlgSystemCsmcpforjakeebabackupInstallerScript implements InstallerScriptIn
 			);
 		}
 
+		// Confirmation message so the operator knows the install actually did
+		// something — the natural assumption with a "plugin" install is that
+		// you go look for a menu entry, but MCP add-ons by design have NO admin
+		// UI. The tools appear in connected MCP clients (Claude Desktop, Claude
+		// Code, claude.ai) automatically.
+		Factory::getApplication()->enqueueMessage(
+			'MCP add-on for Akeeba Backup Core installed and active. New Akeeba tools '
+			. '(list profiles, list / start / step / inspect / delete backups) are now '
+			. 'exposed to your connected MCP clients. There is no separate admin UI by '
+			. 'design — the tools appear in your MCP client automatically.',
+			'message'
+		);
+
 		return true;
 	}
 }

@@ -38,6 +38,18 @@ class PlgSystemCsmcpforjreleasemanagerInstallerScript implements InstallerScript
 			);
 		}
 
+		// Confirmation so the operator knows the install did something — MCP
+		// add-ons by design have NO admin UI. Tools appear in connected MCP
+		// clients (Claude Desktop / Code / claude.ai) automatically.
+		Factory::getApplication()->enqueueMessage(
+			'MCP add-on for Cybersalt Release Manager installed and active. New release-management '
+			. 'tools (list / get / create / update / delete Packages and PackageVersions, plus '
+			. 'read-only views of installations and the activity log) are now exposed to your '
+			. 'connected MCP clients. There is no separate admin UI by design — the tools appear '
+			. 'in your MCP client automatically.',
+			'message'
+		);
+
 		return true;
 	}
 }
