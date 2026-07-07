@@ -10,6 +10,7 @@ Each plugin in this repo is a standalone Joomla system plugin that subscribes to
 |---|---|---|
 | `plg_system_csmcpforjakeebabackup` | [Akeeba Backup Core](https://www.akeeba.com/products/akeeba-backup-core.html) | Backup orchestration: list profiles, list / start / step / inspect / delete backups, manage archives. |
 | `plg_system_csmcpforjreleasemanager` | [Cybersalt Release Manager](https://www.cybersalt.com/extensions/cs-release-manager) | Manage your own extension releases: list / get / create / update / delete Packages and PackageVersions, plus read-only views of installations and the activity log. |
+| `plg_system_csmcpforjstageit` | [StageIt](https://www.php-web-design.com/products/stageit) | Staging environment orchestration: get status / prechecks / list backups, plus chunked start+continue tools for deploy / sync / remove / restore-backup. Each long-runner returns a resume_token so operations bigger than the PHP execution budget can be driven to completion across multiple MCP calls. |
 
 ## Requirements
 
