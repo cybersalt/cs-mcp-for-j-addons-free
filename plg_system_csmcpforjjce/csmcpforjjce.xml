@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade">
+	<name>PLG_SYSTEM_CSMCPFORJJCE</name>
+	<author>Cybersalt</author>
+	<creationDate>2026-08-29</creationDate>
+	<copyright>Copyright (C) 2026 Cybersalt. All rights reserved.</copyright>
+	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+	<authorEmail>support@cybersalt.com</authorEmail>
+	<authorUrl>https://cybersalt.com</authorUrl>
+	<version>1.0.0</version>
+	<!-- 8.2, not 8.1: these plugins declare constants inside traits,
+	     which is a PHP 8.2 feature and a parse-time fatal on 8.1. -->
+	<php_minimum>8.2</php_minimum>
+	<description>PLG_SYSTEM_CSMCPFORJJCE_XML_DESCRIPTION</description>
+
+	<namespace path="src">Cybersalt\Plugin\System\Csmcpforjjce</namespace>
+
+	<scriptfile>script.php</scriptfile>
+
+	<files>
+		<filename>script.php</filename>
+		<folder plugin="csmcpforjjce">services</folder>
+		<folder>src</folder>
+	</files>
+
+	<languages>
+		<language tag="en-GB">language/en-GB/plg_system_csmcpforjjce.ini</language>
+		<language tag="en-GB">language/en-GB/plg_system_csmcpforjjce.sys.ini</language>
+	</languages>
+
+	<updateservers>
+		<server type="extension" name="MCP add-on for JCE">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjjce</server>
+	</updateservers>
+</extension>
