@@ -8,6 +8,9 @@
 	<authorEmail>support@cybersalt.com</authorEmail>
 	<authorUrl>https://cybersalt.com</authorUrl>
 	<version>1.0.0</version>
+	<!-- 8.2, not 8.1: this plugin declares constants inside traits,
+	     which is PHP 8.2+ and a parse-time fatal on 8.1. -->
+	<php_minimum>8.2</php_minimum>
 	<description>PLG_SYSTEM_CSMCPFORJCONVERTFORMSFREE_XML_DESCRIPTION</description>
 
 	<namespace path="src">Cybersalt\Plugin\System\Csmcpforjconvertformsfree</namespace>
