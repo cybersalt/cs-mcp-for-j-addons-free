@@ -8,3 +8,7 @@
 *.swp
 .DS_Store
 Thumbs.db
+
+# Tool artefacts / scratch (must never reach a release zip)
+.playwright-mcp/
+*.log
