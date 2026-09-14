@@ -7,7 +7,15 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>support@cybersalt.com</authorEmail>
 	<authorUrl>https://cybersalt.com</authorUrl>
-	<version>1.1.0</version>
+	<!--
+	1.11.0, not 1.2.0. This plugin shipped at 1.10.2 while it still lived in
+	cs-mcp-for-j; the 2026-06 source split restarted the repo at 1.0.0, leaving
+	every local version numerically BELOW what cs-release-manager was serving.
+	version_compare() reads the middle segment as ten, so anything up to 1.9.x
+	loses to the published 1.10.2 and Joomla would offer sites the older code
+	as an "update". Rejoining the real line at 1.11.0 fixes that for good.
+	-->
+	<version>1.11.0</version>
 	<description>PLG_SYSTEM_CSMCPFORJRELEASEMANAGER_XML_DESCRIPTION</description>
 
 	<namespace path="src">Cybersalt\Plugin\System\Csmcpforjreleasemanager</namespace>
