@@ -52,8 +52,13 @@ final class Csmcpforjreleasemanager extends CMSPlugin implements SubscriberInter
 		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\Versions\UpdateReleaseManagerPackageVersionTool::class,
 		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\Versions\DeleteReleaseManagerPackageVersionTool::class,
 
+		// Installations (customer-site records — one per site that linked to a Package)
+		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\Installations\ListReleaseManagerInstallationsTool::class,
+		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\Installations\GetReleaseManagerInstallationTool::class,
+		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\Installations\UpdateReleaseManagerInstallationTool::class,
+		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\Installations\DeleteReleaseManagerInstallationTool::class,
+
 		// Read-only operational data
-		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\ListReleaseManagerInstallationsTool::class,
 		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\ListReleaseManagerActivityLogTool::class,
 	];
 

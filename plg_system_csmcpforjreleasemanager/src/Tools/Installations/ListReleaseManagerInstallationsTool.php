@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools;
+namespace Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\Installations;
 
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
+use Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\ReleaseManagerTrait;
 use Joomla\CMS\User\User;
 
 final class ListReleaseManagerInstallationsTool extends AbstractTool
