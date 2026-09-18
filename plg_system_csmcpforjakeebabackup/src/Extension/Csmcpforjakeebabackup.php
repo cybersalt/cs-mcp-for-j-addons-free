@@ -25,10 +25,9 @@ use Joomla\Event\SubscriberInterface;
  * no code copied; cs-mcp-for-j is GPL-2-or-later, Akeeba ships GPL-3, both
  * compatible at GPL-3 but the clean-room boundary is preserved.
  *
- * Tools group:
+ * Tools group (7 total — keep this list in step with the TOOLS array below):
  *  - Profiles (read): list_akeeba_profiles, get_akeeba_profile
- *  - Backups  (read): list_akeeba_backups, get_akeeba_backup_info,
- *                     get_akeeba_backup_archive_url
+ *  - Backups  (read): list_akeeba_backups, get_akeeba_backup_info
  *  - Execution (write): start_akeeba_backup, step_akeeba_backup,
  *                       delete_akeeba_backup
  *
