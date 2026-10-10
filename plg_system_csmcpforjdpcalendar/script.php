@@ -22,6 +22,25 @@ class PlgSystemCsmcpforjdpcalendarInstallerScript implements InstallerScriptInte
 			return true;
 		}
 
+		// MCP for Joomla is what gives this add-on somewhere to register its
+		// tools. Without it there is nothing to add on TO, so do not switch the
+		// plugin on — Joomla installs plugins disabled, and we simply leave it
+		// that way and explain. See coreInstalled().
+		if (!$this->coreInstalled()) {
+			Factory::getApplication()->enqueueMessage(
+				'MCP add-on for DPCalendar was installed but has been left DISABLED, because '
+				. 'the MCP for Joomla extension is not on this site. This add-on only adds tools '
+				. 'to MCP for Joomla - on its own it does nothing. Install MCP for Joomla first, '
+				. 'then enable this plugin in System -> Plugins. Nothing is broken and the site is '
+				. 'unaffected.',
+				'warning'
+			);
+
+			$this->clearCaches();
+
+			return true;
+		}
+
 		try {
 			$db = Factory::getContainer()->get(DatabaseInterface::class);
 			$query = $db->getQuery(true)
@@ -54,6 +73,37 @@ class PlgSystemCsmcpforjdpcalendarInstallerScript implements InstallerScriptInte
 		$this->clearCaches();
 
 		return true;
+	}
+
+	/**
+	 * Is the MCP for Joomla component present on this site?
+	 *
+	 * Checked at install time so an add-on installed on its own does not get
+	 * switched on. The runtime guard in the plugin's getSubscribedEvents() is
+	 * the one that actually protects the site; this is what makes the situation
+	 * visible to whoever installed it, instead of leaving them with a plugin
+	 * that is enabled and silently inert.
+	 *
+	 * Fails OPEN on a database error: if we cannot tell, assume the component is
+	 * there and let the install proceed normally. Refusing a legitimate install
+	 * over a transient hiccup would be the worse outcome, and the runtime guard
+	 * still covers the case where we guessed wrong.
+	 */
+	private function coreInstalled(): bool
+	{
+		try {
+			$db = Factory::getContainer()->get(DatabaseInterface::class);
+
+			$query = $db->getQuery(true)
+				->select('COUNT(*)')
+				->from($db->quoteName('#__extensions'))
+				->where($db->quoteName('type') . ' = ' . $db->quote('component'))
+				->where($db->quoteName('element') . ' = ' . $db->quote('com_csmcpforj'));
+
+			return (int) $db->setQuery($query)->loadResult() > 0;
+		} catch (\Throwable $e) {
+			return true;
+		}
 	}
 
 	/**

@@ -151,6 +151,26 @@ final class Csmcpforjjce extends CMSPlugin implements SubscriberInterface
 
 	public static function getSubscribedEvents(): array
 	{
+		/*
+		 * This runs on EVERY request, for every enabled system plugin, before
+		 * anything has a chance to check whether MCP for Joomla is present.
+		 *
+		 * RegisterToolsEvent lives in com_csmcpforj. Reading ::EVENT_NAME off it
+		 * is a class-constant access, which triggers the autoloader — and if the
+		 * component is not installed, PHP raises
+		 * `Error: Class "...RegisterToolsEvent" not found`. That is a fatal on
+		 * every page load, front end AND administrator, which locks the operator
+		 * out of the very screen they would use to disable this plugin. Recovery
+		 * means FTP or direct database access.
+		 *
+		 * class_exists() returns false instead of throwing, so without the core
+		 * component this plugin subscribes to nothing and the site is untouched.
+		 * Do not "simplify" this back to a bare constant access.
+		 */
+		if (!class_exists(RegisterToolsEvent::class)) {
+			return [];
+		}
+
 		return [RegisterToolsEvent::EVENT_NAME => 'onRegisterTools'];
 	}
 
