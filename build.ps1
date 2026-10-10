@@ -70,6 +70,13 @@ foreach ($folder in $addonFolders) {
         continue
     }
 
+    # Every release package carries its full changelog (Joomla-Brain VERSION-BUMP-CHECKLIST).
+    foreach ($cl in 'CHANGELOG.md', 'CHANGELOG.html') {
+        if (-not (Test-Path (Join-Path $srcPath $cl))) {
+            throw "$folderName : $cl missing - every package must ship its changelog."
+        }
+    }
+
     if ($Release) {
         $outZip = Join-Path $root "${folderName}_v${version}.zip"
     } else {

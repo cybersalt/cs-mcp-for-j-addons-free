@@ -1,0 +1,249 @@
+<div class="changelog-container">
+<h1>📋 MCP for Joomla: Akeeba Ticket System add-on — Changelog</h1>
+<h2>🚀 Version 1.0.1 (October 9, 2026)</h2>
+<ul>
+<li>🔧 <strong>Clears Joomla's caches after install</strong> (the PSR-4 autoload map, opcache and Joomla's cache groups). A plugin installed after the autoload map was written is not in it, which could produce an HTTP 500 shortly after installing.</li>
+<li>🛡️ <strong>Never takes the site down when MCP for Joomla is missing.</strong> Installed on a site without MCP for Joomla, the add-on no longer enables itself, and says plainly that nothing is broken and MCP for Joomla is needed. If it is enabled anyway, it stays inert instead of fataling every request, admin included.</li>
+</ul>
+<h2>🚀 Version 1.0.0 (September 17, 2026)</h2>
+<p>First release. 30 tools wrapping Akeeba Ticket System (<code>com_ats</code>) by Akeeba Ltd,
+covering the Core (free) edition's surface. Studied against <strong>ATS 5.6.0</strong> read from a
+live Core install.</p>
+<h3>✨ New</h3>
+<ul>
+<li><strong>Tickets</strong> — <code>list_ats_tickets</code>, <code>get_ats_ticket</code>, <code>create_ats_ticket</code>,
+  <code>update_ats_ticket</code>, <code>set_ats_ticket_status</code>, <code>set_ats_ticket_public</code>,
+  <code>assign_ats_ticket</code>, <code>delete_ats_ticket</code>.</li>
+<li><strong>Posts</strong> — <code>list_ats_posts</code>, <code>get_ats_post</code>, <code>add_ats_post</code>, <code>update_ats_post</code>,
+  <code>set_ats_post_state</code>, <code>delete_ats_post</code>. A ticket's opening message is a post row,
+  not a ticket column.</li>
+<li><strong>Collaborators</strong> — <code>list_ats_ticket_users</code>, <code>invite_ats_user</code>, <code>remove_ats_invite</code>.
+  Invitations look like a premium feature and are not: <code>#__ats_tickets_users</code> is in the
+  base install SQL and the whole path is ungated.</li>
+<li><strong>People</strong> — <code>list_ats_managers</code>, <code>list_ats_assignees</code>.</li>
+<li><strong>Lookups</strong> — <code>list_ats_categories</code>, <code>get_ats_category</code>, <code>list_ats_statuses</code>.</li>
+<li><strong>Reports</strong> — <code>get_ats_ticket_summary</code>, <code>list_ats_stale_tickets</code>,
+  <code>get_ats_agent_workload</code>.</li>
+<li><strong>Config + diagnostics</strong> — <code>get_ats_component_info</code>, <code>get_ats_config</code>,
+  <code>check_ats_health</code>.</li>
+<li><strong>Scoped table access</strong> — <code>list_ats_tables</code>, <code>query_ats_table</code>.</li>
+</ul>
+<h3>🏗 Architecture</h3>
+<ul>
+<li>
+<p><strong>The edition gate is replicated, not assumed.</strong> Around thirty-five places in ATS
+  branch on <code>defined('ATS_PRO') &amp;&amp; ATS_PRO</code>. The constant is defined by
+  <code>Dispatcher::loadVersion()</code>, which runs only when Joomla dispatches <code>com_ats</code>
+  through its own entry point — something an MCP tool call never does. Left alone the
+  constant is <em>absent</em>, and absent reads as Core at every one of those call sites. On a
+  real Pro install that would mean reporting attachments and manager notes as
+  unavailable on a site that has them, and <code>ControlpanelModel.php:67</code> reads the
+  constant bare, which is a PHP 8 fatal rather than a notice. <code>ATSBootTrait</code>
+  reproduces <code>loadVersion()</code> exactly — the <code>version.php</code> include <em>and</em> the
+  <code>is_dir(src/CliCommand)</code> dev-build fallback — and never defines <code>ATS_PRO</code> to <code>'1'</code>
+  on its own initiative.</p>
+</li>
+<li>
+<p><strong><code>#__ats_managernotes</code> is excluded from the add-on entirely, on purpose.</strong> Every
+  other Pro-only ATS table is created unconditionally by the installer and is simply
+  empty on Core, so reading it is harmless. Notes are the exception: a site downgraded
+  from Professional keeps every private note it ever wrote, because the downgrade
+  removes code and not data. ATS fails closed — <code>TicketTable::managerNotes()</code> returns
+  <code>[]</code> on the edition check before it builds a query — but a generic <code>SELECT</code> would
+  not. The table is off <code>query_ats_table</code>'s allowlist and refused by name;
+  <code>check_ats_health</code> reports a <strong>count</strong> of orphaned notes and never their content.</p>
+</li>
+<li>
+<p><strong><code>bootComponent('com_ats')</code> before touching anything.</strong> ATS ships its own <code>vendor/</code>
+  tree, required in exactly one place — <code>services/provider.php:37</code>. HTMLPurifier lives
+  there and <code>Helper\Filter::filterText()</code> is on the save path for every ticket and
+  post, so skipping the boot fatals the write on a missing class with nothing logged.</p>
+</li>
+<li>
+<p><strong>Writes go through <code>TicketModel</code> / <code>PostModel</code>.</strong> Both are genuine Joomla
+  <code>AdminModel</code>s reachable through the component's MVCFactory, and unusually for a
+  wrapped extension ATS is already API-application-aware — it carries explicit
+  <code>isClient('api')</code> branches and an API-specific <code>getForm()</code> fix, because Akeeba ship
+  a JSON:API plugin in Pro. <code>save()</code> loads-then-binds, so a partial payload is
+  non-destructive.</p>
+</li>
+<li>
+<p><strong>Mail-sending writes are wrapped in a <code>SiteApplication</code> context.</strong> Adding a post,
+  assigning a ticket and inviting a collaborator all build ticket URLs for the mail
+  body, and URL building under the API application fails with
+  "Error loading menu: api". Same remedy as the RSTicketsPro add-on — with one
+  addition that add-on did not need: <strong>the swapped application is passed the calling
+  actor's identity.</strong> A <code>SiteApplication</code> built out of the DI container has no identity
+  loaded and reads as a guest, and <code>Permissions::getUser()</code> with no argument resolves
+  to <code>Factory::getApplication()-&gt;getIdentity()</code> (<code>Permissions.php:1003-1013</code>), which is
+  what nearly every ACL decision in ATS runs through. Without <code>loadIdentity()</code> the
+  authenticated caller silently becomes anonymous inside the closure: invitations 403,
+  and — worse, because it is not an error — a manager's reply is recorded as a
+  stranger's and the new-post status matrix lands the ticket in the wrong state.</p>
+</li>
+<li>
+<p><strong>Notifications are the controller's job, not the model's, so this add-on fires them
+  itself.</strong> Nothing in <code>PostModel::save()</code> or <code>PostTable::onAfterStore()</code> sends mail;
+  <code>PostController::postSaveHook()</code> calls <code>PostNotification::notify()</code>.
+  <code>PostNotification.php:23-28</code> says so explicitly — before 5.6.0 this lived on a
+  controller trait, so "anything that creates a post outside a controller sent no
+  notifications at all". <strong>A model-only save is a silent reply</strong>, which is precisely
+  the failure an MCP tool would ship by default. <code>add_ats_post</code> and <code>invite_ats_user</code>
+  replicate the controller's notify step, guarded by <code>class_exists</code> for pre-5.6.0
+  installs.</p>
+</li>
+<li>
+<p><strong>The primary key is re-injected after form validation on a post edit.</strong>
+  <code>forms/post.xml</code> declares no <code>id</code> field, and <code>AdminModel::validate()</code> returns only
+  keys the form knows about — so the id does not survive filtering, <code>save()</code> calls
+  <code>$table-&gt;load(null)</code> (which Joomla returns <code>true</code> from <em>without loading</em>), the bind
+  lands on an empty row and <code>store()</code> <strong>INSERTs</strong>. The symptom is the worst available:
+  the edit reports success, the original post keeps its text, and the ticket silently
+  gains a duplicate reply. This was caught by driving the tool against a live install,
+  not by reading — two "edits" produced posts 7 and 8 while post 3 stood unchanged.
+  Static checks cannot see it and a unit test against the model would have reproduced
+  the same wrong behaviour happily.</p>
+</li>
+</ul>
+<p>ATS already knows about this hazard and works around it one field at a time:
+  <code>PostModel::validate()</code> reads <code>$data['id']</code> to set <code>post.isNew</code> <em>before</em> delegating
+  to the parent, then re-injects <code>created_by</code> afterwards for exactly the same reason
+  (<code>post_new.xml</code> has no <code>created_by</code> field either). <code>update_ats_post</code> does the same
+  for the key itself, <strong>and</strong> refuses outright if the saved row comes back under a
+  different id — a tool that cannot edit must never report that it did.
+  <code>forms/ticket.xml</code> <em>does</em> declare <code>id</code>, which is why <code>update_ats_ticket</code> was never
+  affected; that asymmetry is the reason this needed testing rather than reasoning.</p>
+<ul>
+<li><strong>Visibility is delegated, never re-derived.</strong> Every read tool gates each candidate
+  row through <code>Permissions::getTicketPrivileges()</code> even when the list query already
+  filtered. ATS 5.6.0 shipped to fix a disagreement between the list query and the
+  single-resource check that leaked private tickets through the JSON:API; hand-rolling
+  the predicate is how that bug gets re-created.</li>
+</ul>
+<h3>📝 Vendor behaviour worth knowing</h3>
+<ul>
+<li><strong><code>modified</code> / <code>modified_by</code> on a ticket mean "last reply", not "last edited".</strong> The
+  usual assignment is commented out in both <code>TicketTable::onBeforeStore()</code> and
+  <code>TicketModel::prepareTable()</code>, with a comment explaining why. Reports compute real
+  activity from the newest enabled post instead.</li>
+<li><strong><code>#__ats_tickets.timespent</code> is derived</strong>, recomputed by <code>PostTable::onAfterStore()</code>
+  as <code>SUM(timespent) WHERE ticket_id = :id AND enabled = '1'</code>. Writing it directly is
+  pointless, and because of the <code>enabled</code> filter, unpublishing a post reduces the
+  ticket's total only when the <em>next</em> reply triggers the rollup.</li>
+<li><strong>Posting to a closed ticket is nearly a no-op — but it still mails.</strong>
+  <code>PostTable.php:291</code> guards the whole block with
+  <code>if ($this-&gt;isNewPost &amp;&amp; $ticket-&gt;status != 'C')</code>, so a reply to a closed ticket gets
+  no status assignment, no <code>modified</code> / <code>modified_by</code>, no <code>timespent</code> rollup and no
+  auto-assign. Notifications are outside that block and go out regardless. <code>add_ats_post</code>
+  requires an explicit <code>acknowledge_closed_ticket</code> rather than refusing outright,
+  because <code>Permissions.php:713-727</code> already collapses every privilege but <code>view</code> to
+  false for a non-manager on a closed ticket — so the only caller who can reach the
+  path is a manager, for whom ATS' own UI permits it.</li>
+<li><strong>The <code>siteurl</code> param is not what our notification mail uses.</strong>
+  <code>EmailSending.php:703</code> resolves the <code>{siteurl}</code> token as
+  <code>$app-&gt;isClient('site') ? Uri::base() : $params-&gt;get('siteurl')</code>, and every
+  mail-sending tool here runs inside the site-application wrapper — so the param is
+  bypassed and links come from <code>Uri::base()</code>. An empty <code>siteurl</code> is still a real latent
+  misconfiguration, affecting ATS' own non-site contexts (Pro CLI tasks, scheduled
+  auto-close and auto-reply, the mail gateway), and <code>check_ats_health</code> reports it as
+  exactly that rather than claiming the mail we just sent is broken.</li>
+<li><strong>The post edit grace window is honoured, and ATS computes it twice, differently.</strong>
+  <code>Permissions.php:851-878</code> measures <code>editeableforxminutes</code> (default 15) from <code>created</code>
+  and grants it only to the post's own author; <code>editGraceTime()</code> at <code>:155-172</code> measures
+  from <code>modified</code> when you were the last editor and is used only to decide whether to
+  draw a button. <code>update_ats_post</code> gates on the privilege array rather than binding a
+  table directly to route around it, and its refusal message says which window closed.</li>
+<li><strong><code>set_ats_post_state</code> leaves the ticket's <code>timespent</code> stale on purpose.</strong>
+  <code>Table::publish()</code> is a direct UPDATE — no store, no <code>onAfterStore</code>, no rollup — and
+  an edit would not help either, since the rollup is gated on <code>isNewPost</code>. The tool
+  returns <code>timespent_stored</code> alongside <code>timespent_if_recomputed</code> rather than pretending
+  the two agree.</li>
+<li><strong>Two vendor typos that are currently harmless but will mislead a reader.</strong>
+  <code>PostModel::canDelete()</code> / <code>canEditState()</code> both contain
+  <code>isset($record-&gt;ticket_id) &amp;&amp; empty($record-&gt;ticket_id)</code> (<code>PostModel.php:199</code>, <code>:218</code>)
+  — inverted, so <code>setTicket()</code> never fires; harmless only because
+  <code>PostTable::getTicket()</code> lazy-loads. And <code>PostModel.php:90</code> reads
+  <code>$timeSpentMandatory = !$timeSpentHidden &amp;&amp; $cParams-&gt;get('timespent_mandatory', 0) != 1</code>,
+  a double negative that makes turning "Time Spent Mandatory" <strong>on</strong> the thing that
+  stops the field being required.</li>
+<li><strong>The new-post status matrix is deliberate and easy to get wrong.</strong> A manager's reply
+  on someone else's ticket sets <code>P</code> ("waiting for the customer"); the owner's, an
+  invited collaborator's, or a manager's reply on their own ticket sets <code>O</code>; an
+  automated notice (<code>created_by &lt;= 0</code>) leaves it alone. The vendor's comment warns
+  against rewriting it as a test for "anyone other than the ticket owner", which was
+  the bug it replaced.</li>
+<li><strong>Tickets have no <code>access</code> and no <code>language</code> column</strong> — both inherited from the
+  category — and no <code>checked_out</code> either.</li>
+<li><strong><code>priority</code> is <code>TINYINT NOT NULL</code> with no default</strong>, so an <code>INSERT</code> omitting it
+  errors under <code>STRICT_TRANS_TABLES</code>. Priorities are also hidden by default: the
+  <code>ticketPriorities</code> param defaults to <code>0</code> and <code>TicketModel::getForm()</code> removes the
+  field when it is off.</li>
+<li><strong><code>catid</code> is a bare <code>bigint</code> with no foreign key</strong>, so every category join must carry
+  <code>extension = 'com_ats'</code> or a ticket pointing at a <code>com_content</code> category joins
+  happily and reports nonsense.</li>
+<li><strong><code>#__ats_tickets_users</code> has no unique index and no index at all.</strong> Duplicate
+  invitations are prevented only in PHP, and <code>TicketTable::onAfterDelete()</code> does not
+  clean the table, so deleting a ticket orphans its rows. Both are health checks.</li>
+<li><strong><code>#__ats_posts.attachment_id</code> is a comma-separated list</strong> in a singular-named
+  <code>VARCHAR(512)</code>, not a foreign key, and can disagree with
+  <code>#__ats_attachments.post_id</code> — which is an <code>INT(11)</code> pointing at a <code>bigint</code>.</li>
+<li><strong><code>created_by &lt;= 0</code> on a post is the synthetic "system" author</strong> and does not join to
+  <code>#__users</code>. <code>Permissions::getUser(-1)</code> and <code>EmailSending::getPostEmailData()</code>
+  fabricate <em>two different</em> system users with two different email addresses.</li>
+<li><strong>The component's manifest version can lie.</strong> On the build studied, <code>com_ats/ats.xml</code>
+  says <code>5.5.2</code> while <code>version.php</code> and <code>pkg_ats</code> both say <code>5.6.0</code>, and the code is
+  demonstrably 5.6.0. Never key a capability check off <code>#__extensions.manifest_cache</code>
+  for <code>com_ats</code>; read <code>ATS_VERSION</code> or <code>pkg_ats</code> instead.</li>
+<li><strong><code>#__ats_cannedreplies.access</code> defaults to <code>0</code></strong>, which is not a valid Joomla view
+  level. Only upgraded sites got the <code>UPDATE … SET access = 1</code> fixup; fresh installs
+  keep the <code>0</code>.</li>
+<li><strong><code>TicketTable::load()</code> is not read-only.</strong> <code>onAfterLoad()</code> calls
+  <code>ensureUcmRecord()</code>, which INSERTs a <code>#__ucm_content</code> row when one is missing
+  (<code>TicketTable.php:710-719, 1008-1039</code>). It self-disables above Joomla 5.4, so it is
+  inert on Joomla 6 — but on any Joomla 5.x host a listing tool would write a row per
+  ticket simply by reading. Both read tools therefore <code>SELECT</code> the row and hand it to
+  the vendor's own <code>bindAsLoadEquivalent()</code> (added in 5.3.10 for exactly this) rather
+  than calling <code>load()</code>. Worth knowing that testing on a Joomla 6 site alone would
+  never have caught it.</li>
+<li><strong>A numeric ticket status must be compared as a string.</strong> <code>status = 7</code> makes MySQL
+  treat the value as an ENUM <em>ordinal</em> and match the wrong status; <code>status = '7'</code> is
+  correct. The ENUM permits <code>'1'</code>–<code>'99'</code> unconditionally — the whitelist is the
+  <code>customStatuses</code> component param, not the schema — so deleting a custom status
+  leaves tickets holding the code with no label. <code>list_ats_statuses</code> and
+  <code>get_ats_category</code> flag those as orphaned.</li>
+<li><strong><code>Permissions::getStatuses()</code> returns a flat <code>code =&gt; label</code> map</strong>, not a
+  <code>value</code>/<code>text</code> option list, and the custom entries carry <em>integer</em> keys (cast at
+  <code>Permissions.php:567</code>) while the ENUM stores them as strings. It also appends <code>'C'</code>
+  last deliberately — "The Closed status must always be AFTER any custom status".</li>
+<li><strong><code>getTicketPrivileges()</code>'s docblock under-reports its own return value</strong>: beyond the
+  documented keys it also returns <code>private</code>, <code>ticket.assign</code>, <code>ticket.assignee</code> and
+  <code>ticket.invite</code>. <code>get_ats_ticket</code> returns the whole array rather than a curated subset.</li>
+<li><strong>ATS contradicts itself about whether managers are bound by category access.</strong>
+  <code>getPostableCategories()</code> / <code>getManagerCategories()</code> skip the view-level filter for
+  anyone with <code>core.admin</code> / <code>core.manage</code> on <code>com_ats</code> (<code>Permissions.php:319-325,
+  502-509</code>), while <code>getTicketPrivileges()</code> since 5.6.0 applies it to everyone. A Super
+  User can therefore be entitled to create a ticket in a category whose tickets they
+  cannot read. The category tools expose <code>can_access</code> / <code>can_create</code> / <code>is_manager</code>
+  separately so that is visible rather than baffling.</li>
+<li><strong>A genuine vendor bug, routed around rather than inherited.</strong>
+  <code>TicketsModel::getListQuery()</code> lines 405-411 swap an inverted date range with
+  <code>$temp = $to; $to = $since; $since = $to;</code> — the last assignment should read
+  <code>$since = $temp</code>. Both bounds collapse to the original <code>since</code>, so an inverted range
+  matches almost nothing instead of being corrected. Our tools use independent
+  <code>created_after</code> / <code>created_before</code> clauses and do not go through it.</li>
+<li><strong><code>migrateLegacyCustomFieldsData()</code> is worse than "getForm() writes".</strong> It is a
+  hand-rolled reimplementation of Joomla's <code>FieldModel::setFieldValue()</code> written
+  specifically to bypass the ACL check — the vendor's comment says "I need to migrate
+  the data regardless of the current user… If a public ticket is accessed by a guest I
+  still need to migrate its data" (<code>TicketModel.php:1522-1596</code>). So calling <code>getForm()</code>
+  on a ticket carrying ATS 1.x–4.x field data mutates <code>#__fields_values</code> as a side
+  effect of a read. <code>get_ats_ticket</code> reads <code>#__fields</code> / <code>#__fields_values</code> directly
+  instead, honours Joomla's own category-assignment rule, and filters by the actor's
+  view levels.</li>
+</ul>
+<h3>📦 Build</h3>
+<ul>
+<li>Requires PHP 8.2+ (constants declared inside a trait).</li>
+<li>No admin UI by design — the tools appear in connected MCP clients automatically.</li>
+</ul>
+</div>
