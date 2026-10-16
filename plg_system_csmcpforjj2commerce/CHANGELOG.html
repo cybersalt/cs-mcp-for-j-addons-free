@@ -1,0 +1,42 @@
+<div class="changelog-container">
+<h1>📋 MCP for Joomla: J2Commerce add-on — Changelog</h1>
+<h2>🚀 Version 1.0.0 (October 16, 2026)</h2>
+<p>First release. 43 tools for <strong>J2Commerce 6</strong> (<code>com_j2commerce</code>) by J2Commerce, LLC. Studied against <strong>J2Commerce 6.6.5</strong> and driven end-to-end on Joomla 6.2.0 / PHP 8.3, including a real storefront checkout. This is J2Commerce <em>six</em>; J2Store 4 (<code>com_j2store</code>) is a different product with a different database and is not covered.</p>
+<h3>✨ New</h3>
+<ul>
+<li><strong>Diagnostics</strong> — <code>get_j2commerce_component_info</code>, <code>check_j2commerce_health</code>, <code>check_j2commerce_tax_setup</code>, <code>get_j2commerce_config</code>, <code>set_j2commerce_config</code>, <code>list_j2commerce_tables</code>, <code>query_j2commerce_table</code>.</li>
+<li><strong>Products</strong> — <code>list_j2commerce_products</code>, <code>get_j2commerce_product</code>, <code>create_j2commerce_product</code>, <code>update_j2commerce_product</code>, <code>update_j2commerce_variant</code>, <code>delete_j2commerce_product</code>.</li>
+<li><strong>Advanced prices</strong> — <code>list_j2commerce_product_prices</code>, <code>set_j2commerce_product_price</code>, <code>delete_j2commerce_product_price</code>.</li>
+<li><strong>Stock</strong> — <code>list_j2commerce_stock</code>, <code>set_j2commerce_stock</code>.</li>
+<li><strong>Orders</strong> — <code>list_j2commerce_orders</code>, <code>get_j2commerce_order</code>, <code>list_j2commerce_order_statuses</code>, <code>set_j2commerce_order_status</code>, <code>add_j2commerce_order_note</code>, <code>set_j2commerce_order_tracking</code>.</li>
+<li><strong>Customers</strong> — <code>list_j2commerce_customers</code>, <code>get_j2commerce_customer</code>.</li>
+<li><strong>Coupons</strong> — <code>list_j2commerce_coupons</code>, <code>get_j2commerce_coupon</code>, <code>create_j2commerce_coupon</code>, <code>update_j2commerce_coupon</code>, <code>delete_j2commerce_coupon</code>.</li>
+<li><strong>Gift vouchers</strong> — <code>list_j2commerce_vouchers</code>, <code>get_j2commerce_voucher</code>, <code>adjust_j2commerce_voucher_balance</code>.</li>
+<li><strong>Store</strong> — <code>list_j2commerce_currencies</code>, <code>list_j2commerce_countries</code>, <code>list_j2commerce_geozones</code>, <code>list_j2commerce_manufacturers</code>, <code>list_j2commerce_options</code>, <code>list_j2commerce_shipping_methods</code>, <code>list_j2commerce_payment_methods</code>.</li>
+<li><strong>Reports</strong> — <code>get_j2commerce_sales_summary</code>, <code>get_j2commerce_top_products</code>.</li>
+</ul>
+<h3>🏗 Architecture</h3>
+<ul>
+<li><strong>Reads go to the tables; writes go where J2Commerce puts them.</strong> Order status changes, notes and tracking use J2Commerce's own <code>OrderModel</code> methods — the same ones its REST API calls — so stock moves, history is written, downloads are granted and plugins hear about it. Stock goes through its atomic <code>InventoryHelper</code>, voucher balances through its locked <code>VoucherModel::adjustBalance()</code>, product deletion through its own <code>ProductService</code> cascade.</li>
+<li><strong>Everything else is a targeted update of the named fields.</strong> J2Commerce's product save treats a save as a complete form and sets every field it was not given to zero — price, weight, dimensions, tax profile, manufacturer, even child-variant stock. No tool here ever hands it a partial product.</li>
+<li><strong>A product is an article.</strong> <code>create_j2commerce_product</code> turns an existing article into a product exactly as J2Commerce's own "create from article" action does.</li>
+<li><strong>Tax and geozones are read and audited, never written.</strong> J2Commerce saves those by deleting every rule and re-inserting, with no transaction; a partial save silently zeroes a shop's tax.</li>
+<li><strong>Free</strong>, because J2Commerce 6 has no Pro edition gate: <code>isPro()</code> gates no capability.</li>
+</ul>
+<h3>🔒 Never returned</h3>
+<p>The guest order-view token, raw payment-gateway data, stored payment profiles, customer IP addresses, the cron / payment-hash secret (<code>queue_key</code>) and the download ID. Voucher codes are masked unless explicitly revealed. Payment and shipping plugin credentials are withheld by name pattern, including on gateways this add-on has never seen. Secret columns are also refused as filter and sort targets, so they cannot be recovered a character at a time.</p>
+<h3>📝 J2Commerce behaviour worth knowing</h3>
+<ul>
+<li>Guest checkout saves <strong>no address row</strong>, so J2Commerce's own Customers screen never lists guest buyers. These tools build customers from orders as well.</li>
+<li>A status change with "notify" records the order as notified <strong>even when no email template matches</strong>; on a stock install Delivered has no template. <code>set_j2commerce_order_status</code> predicts which templates can fire and reports what was actually sent.</li>
+<li>Stock is released only by status ids 3, 5 and 6, so a custom "Refunded" status keeps stock held.</li>
+<li>The store-wide "Enable inventory" switch does not control stock in 6.6.5; each variant's "Manage stock" does.</li>
+<li>An advanced price is used only if it is <strong>lower</strong> than the base price, and a customer group of 0 matches nobody.</li>
+<li>A coupon's "User Group" and "Limit to X items" fields are silently discarded: 6.6.5 has no columns for them.</li>
+<li>Deleting an order never restocks it.</li>
+</ul>
+<h3>📦 Build</h3>
+<ul>
+<li>Requires PHP 8.2+ and MCP for Joomla. Installs disabled, with an explanation, when MCP for Joomla is not present, and clears Joomla's caches after install.</li>
+</ul>
+</div>
