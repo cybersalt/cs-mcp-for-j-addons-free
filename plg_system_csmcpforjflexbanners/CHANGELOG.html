@@ -1,0 +1,38 @@
+<div class="changelog-container">
+<h1>📋 MCP for Joomla: FlexBanners add-on — Changelog</h1>
+<h2>🚀 Version 1.0.0 (October 19, 2026)</h2>
+<p>First release. 26 tools for <strong>FlexBanners</strong> (<code>com_flexbanners</code> + <code>mod_flexbanners</code>) by Inch Hosting. Studied against <strong>FlexBanners 5.1.10</strong> and checked against <strong>6.0.05</strong> (same schema, different module behaviour). Driven end-to-end on Joomla 6.2.0 / PHP 8.3, including banners rendering, rotating and counting clicks on the front end.</p>
+<h3>✨ New</h3>
+<ul>
+<li><strong>Diagnostics</strong> — <code>check_flexbanners_health</code>, <code>query_flexbanners_table</code>.</li>
+<li><strong>Locations (ad groups)</strong> — <code>list_flexbanners_locations</code>, <code>create_flexbanners_location</code>, <code>update_flexbanners_location</code>, <code>delete_flexbanners_location</code>.</li>
+<li><strong>Modules</strong> — <code>create_flexbanners_location_module</code> (a new location and a cloned <code>mod_flexbanners</code> module in ONE call: "add another row of ads"), <code>list_flexbanners_modules</code>, <code>update_flexbanners_module</code>.</li>
+<li><strong>Banners</strong> — <code>list_flexbanners</code>, <code>get_flexbanner</code>, <code>create_flexbanner</code>, <code>update_flexbanner</code>, <code>set_flexbanner_state</code>, <code>reset_flexbanner_counters</code>, <code>delete_flexbanner</code>.</li>
+<li><strong>Click-through links</strong> — <code>list_flexbanners_links</code>, <code>create_flexbanners_link</code>, <code>update_flexbanners_link</code>.</li>
+<li><strong>Clients</strong> — <code>list_flexbanners_clients</code>, <code>create_flexbanners_client</code>, <code>update_flexbanners_client</code>.</li>
+<li><strong>Size presets</strong> — <code>list_flexbanners_sizes</code>, <code>create_flexbanners_size</code>, <code>update_flexbanners_size</code>.</li>
+<li><strong>Reports</strong> — <code>get_flexbanners_stats</code> (impressions, clicks and CTR per banner, location and client).</li>
+</ul>
+<h3>🏗 Architecture</h3>
+<ul>
+<li><strong>Every banner tool explains whether the banner will actually show</strong>, using the same rules as <code>mod_flexbanners</code>: published and not finished, an existing size and category (both INNER JOINed), a category visitors can see, language <code>*</code> or the site default, and a published, positioned module showing its location. When it will not show, it says exactly why.</li>
+<li><strong>Writes are targeted SQL of the named columns.</strong> FlexBanners' own banner <code>save()</code> cannot be driven from outside its admin form: it reads the request, mis-keys category/article restrictions, always clears "finished", and turns a category id it does not recognise into a new category.</li>
+<li><strong>Module rows go through Joomla's own module model</strong> (asset, menu assignment, cache), and module settings are changed by rewriting only the named params, so position and menu assignment are never touched.</li>
+<li><strong>Free</strong>, because FlexBanners is free.</li>
+</ul>
+<h3>📝 FlexBanners behaviour worth knowing</h3>
+<ul>
+<li><strong>On Joomla 6, FlexBanners (5.1.10 and 6.0.05) needs the "Behaviour - Backward Compatibility 6" plugin.</strong> Without it the component dies silently on load and the module fails with <code>Class "JRoute" not found</code>; any page showing a banner breaks. <code>check_flexbanners_health</code> detects both. These MCP tools are unaffected because they never boot the component.</li>
+<li>One module shows one location, so several rows of ads means several locations and several modules.</li>
+<li>5.1.x never enforces end dates or impression/click limits. 6.x enforces them on every page view, and also re-publishes any unfinished banner whose start date has passed.</li>
+<li>The language test uses the site's default language, not the language of the page.</li>
+<li>Clicks are counted for every request, bots included; only impressions are bot-filtered.</li>
+<li>There is no per-day statistics table: the counters are lifetime totals.</li>
+<li>A size preset's "max file size" is stored but never enforced.</li>
+<li>Article restrictions saved in the FlexBanners admin are stored as article id 0 and never work; <code>update_flexbanner</code> writes them correctly.</li>
+</ul>
+<h3>📦 Build</h3>
+<ul>
+<li>Requires PHP 8.2+ and MCP for Joomla. Installs disabled, with an explanation, when MCP for Joomla is not present, and clears Joomla's caches after install.</li>
+</ul>
+</div>
