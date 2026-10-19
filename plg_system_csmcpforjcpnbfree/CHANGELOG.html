@@ -1,0 +1,28 @@
+<div class="changelog-container">
+<h1>📋 MCP for Joomla: Cookies Policy Notification Bar add-on — Changelog</h1>
+<h2>🚀 Version 1.0.0 (October 19, 2026)</h2>
+<p>First release. 14 tools for <strong>Cookies Policy Notification Bar 5.x</strong> (CPNB) by Web357, studied against the 5.1.2 package and driven end-to-end on Joomla 6.2.0 / PHP 8.3. Free, and works with both the free and PRO editions of CPNB.</p>
+<h3>✨ New</h3>
+<ul>
+<li><strong>Diagnostics</strong> — <code>get_cpnb_component_info</code>, <code>check_cpnb_health</code>, <code>check_cpnb_frontend</code>.</li>
+<li><strong>Configuration</strong> — <code>get_cpnb_config</code>, <code>set_cpnb_config</code> (position, timers, overlay, colours, button order, consent-cookie names and lifetimes, Cookies Manager, menu visibility).</li>
+<li><strong>Cookie categories</strong> — <code>list_cpnb_categories</code>, <code>create_cpnb_category</code>, <code>update_cpnb_category</code>, <code>delete_cpnb_category</code>.</li>
+<li><strong>Cookie declarations</strong> — <code>list_cpnb_cookie_declarations</code>, <code>set_cpnb_cookie_declaration</code>, <code>delete_cpnb_cookie_declaration</code>.</li>
+<li><strong>Texts</strong> (site default language) — <code>get_cpnb_texts</code>, <code>set_cpnb_texts</code>.</li>
+</ul>
+<h3>🏗 Architecture</h3>
+<ul>
+<li><strong>Writes go through CPNB's own settings model</strong>, so its validation rules and its cache purge (Joomla page cache, every cache group, JCH Optimize) apply, and every write is re-read from the database before it is reported.</li>
+<li><strong>The model is never allowed to read its own starting params.</strong> It reads them through <code>PluginHelper::getPlugin()</code>, which returns nothing for a disabled plugin — so with the bar switched off, CPNB's own save of one key wipes every other setting. The tools inject the stored params themselves.</li>
+<li><strong>Unknown keys are refused</strong>, because CPNB's model silently drops keys it has no rule for and reports success.</li>
+<li><strong>Lists are edited one row at a time.</strong> CPNB replaces a subform (categories, declarations, button order) whole, so the tools read the full list, change one row, and write the full list back.</li>
+<li><strong>Pro capabilities are not unlocked here.</strong> On the free build of CPNB, settings behind cookie blocking, consent logs and GeoIP targeting are refused, and texts can only be written for the site's default language. Dedicated tools for CPNB PRO capabilities ship in the Cybersalt Pro add-on.</li>
+</ul>
+<h3>📝 CPNB behaviour worth knowing</h3>
+<ul>
+<li>Deleting every cookie category does not remove them from the site: CPNB falls back to four hard-coded sample categories. <code>delete_cpnb_category</code> refuses to remove the last one.</li>
+<li>Texts are stored per language tag (<code>header_message_en_GB</code>); the bar shows the visitor's language and falls back to the language-file default, not to another language's text.</li>
+<li>Only the first non-empty GeoIP list is evaluated, and none of them apply unless GeoIP is switched on.</li>
+<li>Uninstalling CPNB drops its consent-log table.</li>
+</ul>
+</div>
