@@ -30,7 +30,8 @@ final class UpdateReleaseManagerPackageVersionTool extends AbstractTool
 		return 'Update an existing cs-release-manager package version. Required: id. Only '
 			. 'fields you supply are changed. Pass is_latest:1 to promote this row — '
 			. 'cs-release-manager auto-unsets is_latest on the other versions of the same '
-			. 'package.';
+			. 'package. Changing filename without supplying sha256 re-computes sha256 from the '
+			. 'new file, so the update feed never advertises the checksum of the old file.';
 	}
 
 	public function getInputSchema(): array
@@ -79,6 +80,26 @@ final class UpdateReleaseManagerPackageVersionTool extends AbstractTool
 			}
 		}
 
+		if (isset($data['sha256'])) {
+			$data['sha256'] = strtolower(trim((string) $data['sha256']));
+			if ($data['sha256'] !== '' && !preg_match('/^[0-9a-f]{64}$/', $data['sha256'])) {
+				return ToolResult::error('sha256 must be 64 hex characters. Nothing was changed.');
+			}
+		}
+
+		$shaNote = null;
+		if (array_key_exists('filename', $data) && !array_key_exists('sha256', $data)) {
+			$hashed = $this->csrmHashVersionFile((int) $existing->package_id, (string) $data['filename']);
+			if ($hashed['hash'] === null) {
+				return ToolResult::error(
+					'Nothing was changed: the sha256 of the new file could not be computed, and keeping '
+					. 'the checksum of the old file would make Joomla reject the download. ' . $hashed['error']
+				);
+			}
+			$data['sha256'] = $hashed['hash'];
+			$shaNote        = 'sha256 re-computed from ' . $hashed['path'];
+		}
+
 		$result = $this->saveAdminModel($model, $data);
 		if (!$result['ok'] && $result['error'] !== '') {
 			$check = $model->getItem($id);
@@ -87,11 +108,25 @@ final class UpdateReleaseManagerPackageVersionTool extends AbstractTool
 			}
 		}
 
+		if (isset($data['sha256'])) {
+			$stored = $this->csrmStoredSha256($id);
+			if ($stored !== $data['sha256']) {
+				return ToolResult::error(
+					'Package version ' . $id . ' was saved, but its stored sha256 is "' . $stored
+					. '" rather than "' . $data['sha256'] . '".'
+				);
+			}
+		}
+
 		$response = [
 			'ok'             => true,
 			'id'             => $id,
 			'fields_changed' => array_values(array_diff(array_keys($data), ['id'])),
 		];
+		if ($shaNote !== null) {
+			$response['sha256']      = $data['sha256'];
+			$response['sha256_note'] = $shaNote;
+		}
 		if (!$result['ok'] && $result['error'] !== '') {
 			$response['post_save_warning'] = $result['error'];
 		}

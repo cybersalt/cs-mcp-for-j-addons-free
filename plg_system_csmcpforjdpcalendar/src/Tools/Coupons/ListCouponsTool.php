@@ -48,7 +48,7 @@ final class ListCouponsTool extends AbstractTool
 
 		$t = $this->db->getPrefix() . 'dpcalendar_coupons';
 		$q = $this->db->getQuery(true)
-			->select(['id', 'title', 'code', 'value', 'type', 'area', 'limit', 'state', 'access', 'ordering', 'publish_up', 'publish_down'])
+			->select($this->db->quoteName(['id', 'title', 'code', 'value', 'type', 'area', 'limit', 'state', 'access', 'ordering', 'publish_up', 'publish_down']))
 			->from($this->db->quoteName($t))
 			->order($this->db->quoteName('ordering') . ' ASC');
 

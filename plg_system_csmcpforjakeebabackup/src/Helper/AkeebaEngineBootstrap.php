@@ -120,6 +120,23 @@ final class AkeebaEngineBootstrap
 			JPATH_ADMINISTRATOR . '/components/com_akeebabackup/serverkey.php'
 		);
 
+		// Load the key NOW, which include()s serverkey.php and defines the global
+		// AKEEBA_SERVERKEY constant. This is not optional. setKeyFilename() only
+		// configures the CURRENT SecureSettings object, and that object is a
+		// "temporary" Factory instance: BackupModel::startBackup() calls
+		// Factory::nuke() before load_configuration(), the fresh SecureSettings it
+		// gets afterwards has the default relative filename "serverkey.php", which
+		// does not resolve from the API app's working directory, so the key comes
+		// back empty, the AES-encrypted profile silently fails to decrypt, and the
+		// backup starts on DEFAULT settings (default output folder, default
+		// filters). The next step_akeeba_backup then decrypts correctly, looks for
+		// its memory file in the profile's REAL output folder, and fails with
+		// "Akeeba Engine detected a problem while saving temporary data".
+		// Akeeba's own backend never hits this because its Dispatcher calls
+		// loadAkeebaEngineConfiguration() (and so getKey()) before any nuke(); once
+		// the constant exists every later SecureSettings instance reads it.
+		\Akeeba\Engine\Factory::getSecureSettings()->getKey();
+
 		// Akeeba's own bootstrap sets a push-notifications handler here. We
 		// deliberately skip it: push notifications target their own admin UI
 		// flow (websocket-like polling); from an MCP context they'd fire into
@@ -139,5 +156,112 @@ final class AkeebaEngineBootstrap
 
 		self::$bootstrapped = true;
 		return $component;
+	}
+
+	/**
+	 * Turn an Engine status array into an unambiguous outcome for MCP callers.
+	 *
+	 * `done` means "stop calling step_akeeba_backup", which is true both when the
+	 * backup finished AND when it failed; `succeeded` says which. The matching
+	 * #__akeebabackup_backups row is looked up by its engine backupid so callers
+	 * do not have to guess which record belongs to this run.
+	 *
+	 * @return array{state: string, done: bool, succeeded: bool, errored: bool, record: ?array, next_action: string}
+	 */
+	public static function describeOutcome(array $status, string $backupId): array
+	{
+		$errored  = !empty($status['Error']);
+		$finished = !$errored && isset($status['HasRun']) && (int) $status['HasRun'] === 1;
+		$state    = $errored ? 'failed' : ($finished ? 'complete' : 'running');
+
+		$record = null;
+
+		if ($backupId !== '') {
+			try {
+				$db  = Factory::getContainer()->get(DatabaseInterface::class);
+				$row = $db->setQuery(
+					$db->getQuery(true)
+						->select($db->quoteName(['id', 'status', 'profile_id', 'archivename', 'absolute_path', 'total_size']))
+						->from($db->quoteName('#__akeebabackup_backups'))
+						->where($db->quoteName('backupid') . ' = ' . $db->quote($backupId))
+						->order($db->quoteName('id') . ' DESC'),
+					0,
+					1
+				)->loadAssoc();
+
+				if ($row) {
+					$record = [
+						'id'            => (int) $row['id'],
+						'status'        => (string) $row['status'],
+						'profile_id'    => (int) $row['profile_id'],
+						'archivename'   => (string) $row['archivename'],
+						'absolute_path' => (string) $row['absolute_path'],
+						'total_size'    => (int) $row['total_size'],
+					];
+				}
+			} catch (\Throwable $e) {
+				$record = null;
+			}
+		}
+
+		$next = match ($state) {
+			'running'  => 'Call step_akeeba_backup again with the same backup_id and tag.',
+			'complete' => 'Backup finished. Do not call step_akeeba_backup again.',
+			default    => 'Backup FAILED: ' . $status['Error'] . ' Do not call step_akeeba_backup again; '
+				. 'start a new backup once the cause is fixed'
+				. ($record ? ', and delete the failed record ' . $record['id'] . ' with delete_akeeba_backup if it is not wanted.' : '.'),
+		};
+
+		return [
+			'state'       => $state,
+			'done'        => $state !== 'running',
+			'succeeded'   => $state === 'complete',
+			'errored'     => $errored,
+			'record'      => $record,
+			'next_action' => $next,
+		];
+	}
+
+	/**
+	 * Load a profile's configuration into the Engine exactly as Akeeba's own
+	 * loadAkeebaEngineConfiguration() does, and refuse rather than run on
+	 * defaults when an encrypted profile cannot be decrypted.
+	 *
+	 * Returns the effective output directory (with Akeeba's [SITEROOT]-style
+	 * variables still in place) so callers can report where the archive goes.
+	 *
+	 * @throws \RuntimeException when the profile is encrypted and no key is available
+	 */
+	public static function loadProfileConfiguration(int $profileId): string
+	{
+		$db  = Factory::getContainer()->get(DatabaseInterface::class);
+		$raw = (string) $db->setQuery(
+			$db->getQuery(true)
+				->select($db->quoteName('configuration'))
+				->from($db->quoteName('#__akeebabackup_profiles'))
+				->where($db->quoteName('id') . ' = ' . $profileId)
+		)->loadResult();
+
+		$encrypted = \in_array(substr($raw, 0, 12), ['###AES128###', '###CTR128###'], true);
+
+		if ($encrypted) {
+			// Akeeba's load_configuration() does not throw when decryption fails
+			// (decryptionException is off by default): it quietly loads defaults.
+			// So decrypt once ourselves and check the result is a real profile.
+			$secure = \Akeeba\Engine\Factory::getSecureSettings();
+			$plain  = (string) $secure->getKey() === '' ? '' : (string) $secure->decryptSettings($raw);
+
+			if (strpos($plain, '"akeeba"') === false && strpos($plain, '[akeeba]') === false) {
+				throw new \RuntimeException(
+					'Akeeba Backup profile ' . $profileId . ' is encrypted and could not be decrypted '
+					. '(key file administrator/components/com_akeebabackup/serverkey.php missing or not '
+					. 'matching). Refusing to back up on default settings. Nothing was started.'
+				);
+			}
+		}
+
+		\Akeeba\Engine\Platform::getInstance()->load_configuration($profileId);
+
+		return (string) \Akeeba\Engine\Factory::getConfiguration()->get('akeeba.basic.output_directory', '');
 	}
 }

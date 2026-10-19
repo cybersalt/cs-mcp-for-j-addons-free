@@ -58,7 +58,7 @@ final class GetEventBookingsSummaryTool extends AbstractTool
 			$eid = (int) $arguments['event_id'];
 			$ev = $this->db->setQuery(
 				$this->db->getQuery(true)
-					->select(['id', 'title', 'catid', 'start_date', 'end_date', 'capacity', 'capacity_used', 'max_tickets'])
+					->select($this->db->quoteName(['id', 'title', 'catid', 'start_date', 'end_date', 'capacity', 'capacity_used', 'max_tickets']))
 					->from($this->db->quoteName($tE))
 					->where($this->db->quoteName('id') . ' = ' . $eid)
 			)->loadAssoc();

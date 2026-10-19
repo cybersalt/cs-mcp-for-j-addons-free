@@ -67,7 +67,7 @@ final class ListConnectionsTool extends AbstractTool
 		// less. Returning them would hand every integration credential on the site
 		// to whatever model is driving the conversation.
 		$q = $this->db->getQuery(true)
-			->select(['id', 'app', 'title', 'created'])
+			->select($this->db->quoteName(['id', 'app', 'title', 'created']))
 			->from($this->db->quoteName($this->cfTableName('connections')))
 			->order($this->db->quoteName('app') . ' ASC, ' . $this->db->quoteName('id') . ' ASC');
 

@@ -1,5 +1,12 @@
 <div class="changelog-container">
 <h1>📋 MCP for Joomla: Akeeba Backup add-on — Changelog</h1>
+<h2>🚀 Version 1.0.3 (October 19, 2026)</h2>
+<ul>
+<li>🐛 <strong><code>start_akeeba_backup</code> uses the profile's own settings.</strong> On a site whose backup profile is encrypted (Akeeba's default once its Control Panel has been opened), the add-on could not read the encryption key, so the backup started on Akeeba's <em>default</em> settings (default output folder, default filters) and the first <code>step_akeeba_backup</code> then failed with "Akeeba Engine detected a problem while saving temporary data". The key is now loaded the way Akeeba's own admin screens load it, the profile's configuration is loaded before the backup starts, and an encrypted profile that cannot be decrypted is refused instead of silently backed up on defaults.</li>
+<li>🐛 <strong>Start and step results are unambiguous.</strong> Each now returns <code>state</code> (<code>running</code>, <code>complete</code> or <code>failed</code>), <code>done</code> (true means stop calling <code>step_akeeba_backup</code>, whether the backup finished or failed), <code>succeeded</code>, the backup <code>record</code> (id, archive path, size) and a <code>next_action</code>. A failed backup is returned as an error result. Previously a failure came back as <code>done: false</code> with <code>errored: true</code>.</li>
+<li>✨ <code>start_akeeba_backup</code> reports the profile's output folder, and refuses a profile id that does not exist.</li>
+<li>📝 <code>list_akeeba_backups</code> and <code>get_akeeba_backup_info</code> say that backup times are UTC.</li>
+</ul>
 <h2>🚀 Version 1.0.2 (October 9, 2026)</h2>
 <ul>
 <li>Akeeba Backup: drop a tool from the docblock that does not exist.</li>

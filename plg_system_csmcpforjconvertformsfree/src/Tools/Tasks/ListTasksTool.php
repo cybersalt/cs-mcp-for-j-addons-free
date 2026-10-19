@@ -62,8 +62,8 @@ final class ListTasksTool extends AbstractTool
 		$table = $this->cfTableName('tasks');
 
 		$q = $this->db->getQuery(true)
-			->select(['id', 'form_id', 'title', 'state', 'action', 'app', 'trigger',
-				'connection_id', 'options', 'conditions', 'silentfail', 'created', 'modified', 'ordering'])
+			->select($this->db->quoteName(['id', 'form_id', 'title', 'state', 'action', 'app', 'trigger',
+				'connection_id', 'options', 'conditions', 'silentfail', 'created', 'modified', 'ordering']))
 			->from($this->db->quoteName($table))
 			->order($this->db->quoteName('form_id') . ' ASC, ' . $this->db->quoteName('ordering') . ' ASC');
 
@@ -160,7 +160,7 @@ final class ListTasksTool extends AbstractTool
 	private function formNames(): array
 	{
 		$q = $this->db->getQuery(true)
-			->select(['id', 'name'])
+			->select($this->db->quoteName(['id', 'name']))
 			->from($this->db->quoteName($this->cfTableName()));
 
 		$rows = $this->db->setQuery($q)->loadAssocList() ?: [];

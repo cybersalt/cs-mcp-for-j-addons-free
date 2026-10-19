@@ -49,8 +49,8 @@ final class ListLocationsTool extends AbstractTool
 
 		$t = $this->db->getPrefix() . 'dpcalendar_locations';
 		$q = $this->db->getQuery(true)
-			->select(['id', 'title', 'alias', 'country', 'province', 'city', 'zip', 'street', 'number',
-				'latitude', 'longitude', 'url', 'state', 'ordering', 'created'])
+			->select($this->db->quoteName(['id', 'title', 'alias', 'country', 'province', 'city', 'zip', 'street', 'number',
+				'latitude', 'longitude', 'url', 'state', 'ordering', 'created']))
 			->from($this->db->quoteName($t))
 			->order($this->db->quoteName('ordering') . ' ASC');
 

@@ -1,5 +1,11 @@
 # MCP for Joomla: Cybersalt Release Manager add-on — Changelog
 
+## 🚀 Version 1.11.2 (October 19, 2026)
+
+- 🐛 **`create_release_manager_package_version` now really computes `sha256` when you leave it out**, as its description always said. It used to store an empty checksum, because Release Manager only hashes files on its own upload screen, so the update feed served that version without a `<sha256>`. The tool now hashes the zip in the package's downloads folder, and refuses (creating nothing) if the file is not there yet.
+- 🐛 **`update_release_manager_package_version` re-computes `sha256` when you change `filename`** without supplying a new checksum, instead of leaving the old file's checksum in place, which would make Joomla reject the download.
+- 🛡️ Both tools reject a malformed `sha256` or a `filename` with folders in it, and re-read the stored checksum after saving.
+
 ## 🚀 Version 1.11.1 (October 9, 2026)
 
 - 🔧 **Clears Joomla's caches after install** (the PSR-4 autoload map, opcache and Joomla's cache groups). A plugin installed after the autoload map was written is not in it, which could produce an HTTP 500 shortly after installing.

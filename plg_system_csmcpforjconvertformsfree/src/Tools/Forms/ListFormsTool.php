@@ -52,7 +52,7 @@ final class ListFormsTool extends AbstractTool
 		$table = $this->cfTableName();
 
 		$q = $this->db->getQuery(true)
-			->select(['id', 'name', 'state', 'created', 'ordering', 'params'])
+			->select($this->db->quoteName(['id', 'name', 'state', 'created', 'ordering', 'params']))
 			->from($this->db->quoteName($table))
 			->order($this->db->quoteName('id') . ' DESC');
 

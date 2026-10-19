@@ -13,7 +13,7 @@ use Joomla\CMS\User\User;
 
 /**
  * Advances an in-progress Akeeba backup one step. The agent MUST keep calling
- * this until status.HasRun == 1 or status.Error is non-empty. Each step runs
+ * this while `done` is false. Each step runs
  * one Akeeba "tick" — bounded by the profile's max-execution-time (typically
  * 5–14s).
  */
@@ -24,11 +24,12 @@ final class StepAkeebaBackupTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Advance an in-progress Akeeba Backup by one engine step. Pass the backup_id '
-			. 'and tag returned by start_akeeba_backup. Returns Akeeba\'s engine status '
-			. 'array: HasRun (0 = more steps remaining, 1 = backup finished), Domain (current '
-			. 'phase, e.g. "init"/"DBBackup"/"finale"), Step + Substep (debug labels), Error '
-			. '(non-empty = abort), Warnings (array), Progress (0–100 estimate). Keep calling '
-			. 'until HasRun==1 or Error is set.';
+			. 'and tag returned by start_akeeba_backup. Returns state ("running", "complete" or '
+			. '"failed"), done (true = stop calling: the backup either finished or failed), '
+			. 'succeeded (true only for a finished backup), record (the backup row: id, status, '
+			. 'archive path, size), next_action, and Akeeba\'s raw engine status array (Domain, '
+			. 'Step, Substep, Error, Warnings, Progress 0-100). A failed backup is returned as '
+			. 'an error result. Keep calling while done is false.';
 	}
 
 	public function getInputSchema(): array
@@ -61,12 +62,13 @@ final class StepAkeebaBackupTool extends AbstractTool
 
 		$status = $model->stepBackup();
 
+		$outcome = AkeebaEngineBootstrap::describeOutcome($status, $backupId);
+
 		return ToolResult::json([
 			'backup_id' => $backupId,
 			'tag'       => $tag,
-			'status'    => $status,
-			'done'      => isset($status['HasRun']) && (int) $status['HasRun'] === 1,
-			'errored'   => !empty($status['Error']),
-		]);
+		] + $outcome + [
+			'status' => $status,
+		], $outcome['state'] === 'failed');
 	}
 }

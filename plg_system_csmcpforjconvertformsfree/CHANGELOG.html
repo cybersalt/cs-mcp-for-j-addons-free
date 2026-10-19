@@ -1,5 +1,11 @@
 <div class="changelog-container">
 <h1>📋 MCP for Joomla: Convert Forms add-on — Changelog</h1>
+<h2>🚀 Version 1.0.3 (October 19, 2026)</h2>
+<ul>
+<li>🐛 <strong><code>list_convertforms_tasks</code> works on MariaDB and MySQL 8.</strong> It selected the <code>trigger</code> column without quoting it, and <code>trigger</code> is a reserved word, so every call failed with an SQL syntax error. All column lists in the add-on are now quoted. (GitHub issue #4)</li>
+<li>🐛 <strong><code>update_convertforms_task</code> no longer reports a change it did not make.</strong> After saving, it re-reads the task from the database and checks every requested change against the stored row; if any did not land, the call fails and names it. The response now shows the stored values rather than echoing the request back.</li>
+<li>🐛 <strong><code>update_convertforms_task</code> refuses argument names it does not know</strong> instead of silently ignoring them. Passing <code>state</code> (the column name <code>get_convertforms_task</code> returns) used to be dropped without a word while the call reported success; <code>state</code> is now accepted as an alias for <code>enabled</code>.</li>
+</ul>
 <h2>🚀 Version 1.0.2 (October 9, 2026)</h2>
 <ul>
 <li>🔧 <strong>Clears Joomla's caches after install</strong> (the PSR-4 autoload map, opcache and Joomla's cache groups). A plugin installed after the autoload map was written is not in it, which could produce an HTTP 500 shortly after installing.</li>

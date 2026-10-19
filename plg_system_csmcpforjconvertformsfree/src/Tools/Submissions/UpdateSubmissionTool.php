@@ -79,7 +79,7 @@ final class UpdateSubmissionTool extends AbstractTool
 
 		$row = $this->db->setQuery(
 			$this->db->getQuery(true)
-				->select(['id', 'form_id', 'params'])
+				->select($this->db->quoteName(['id', 'form_id', 'params']))
 				->from($this->db->quoteName($table))
 				->where($this->db->quoteName('id') . ' = ' . $id)
 		)->loadAssoc();

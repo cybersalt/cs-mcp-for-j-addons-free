@@ -49,8 +49,8 @@ final class ListExtcalendarsTool extends AbstractTool
 
 		$t = $this->db->getPrefix() . 'dpcalendar_extcalendars';
 		$q = $this->db->getQuery(true)
-			->select(['id', 'title', 'alias', 'plugin', 'description', 'color', 'color_force',
-				'state', 'ordering', 'sync_date', 'access', 'access_content', 'language', 'created'])
+			->select($this->db->quoteName(['id', 'title', 'alias', 'plugin', 'description', 'color', 'color_force',
+				'state', 'ordering', 'sync_date', 'access', 'access_content', 'language', 'created']))
 			->from($this->db->quoteName($t))
 			->order($this->db->quoteName('ordering') . ' ASC');
 

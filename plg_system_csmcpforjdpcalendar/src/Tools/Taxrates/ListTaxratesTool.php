@@ -48,7 +48,7 @@ final class ListTaxratesTool extends AbstractTool
 
 		$t = $this->db->getPrefix() . 'dpcalendar_taxrates';
 		$q = $this->db->getQuery(true)
-			->select(['id', 'title', 'rate', 'countries', 'inclusive', 'state', 'ordering', 'publish_up', 'publish_down'])
+			->select($this->db->quoteName(['id', 'title', 'rate', 'countries', 'inclusive', 'state', 'ordering', 'publish_up', 'publish_down']))
 			->from($this->db->quoteName($t))
 			->order($this->db->quoteName('ordering') . ' ASC');
 

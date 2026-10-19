@@ -1,5 +1,9 @@
 <div class="changelog-container">
 <h1>📋 MCP for Joomla: DPCalendar add-on — Changelog</h1>
+<h2>🚀 Version 1.0.2 (October 19, 2026)</h2>
+<ul>
+<li>🐛 <strong><code>list_dpcalendar_coupons</code> works on MySQL and MariaDB.</strong> It selected the coupon's <code>limit</code> column without quoting it, and <code>limit</code> is a reserved word, so every call failed with an SQL syntax error. All plain column lists in the add-on are now quoted.</li>
+</ul>
 <h2>🚀 Version 1.0.1 (October 9, 2026)</h2>
 <ul>
 <li>🔧 <strong>Clears Joomla's caches after install</strong> (the PSR-4 autoload map, opcache and Joomla's cache groups). A plugin installed after the autoload map was written is not in it, which could produce an HTTP 500 shortly after installing.</li>

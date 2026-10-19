@@ -599,7 +599,7 @@ trait ConvertFormsBootTrait
 	protected function cfFetchForm(int $id): ?array
 	{
 		$q = $this->db->getQuery(true)
-			->select(['id', 'name', 'state', 'created', 'ordering', 'params'])
+			->select($this->db->quoteName(['id', 'name', 'state', 'created', 'ordering', 'params']))
 			->from($this->db->quoteName($this->cfTableName()))
 			->where($this->db->quoteName('id') . ' = ' . (int) $id);
 

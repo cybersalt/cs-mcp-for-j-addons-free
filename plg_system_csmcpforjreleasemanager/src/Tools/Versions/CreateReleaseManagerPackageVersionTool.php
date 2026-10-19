@@ -22,7 +22,8 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 		return 'Create a cs-release-manager package version record. Required: package_id, '
 			. 'version (semver string), filename (the zip filename ALREADY uploaded to '
 			. '/media/com_csreleasemanager/downloads/{package.extension_element}/). Optional: '
-			. 'sha256 (auto-computed from the file if omitted), release_notes (HTML), '
+			. 'sha256 (computed from the uploaded file if omitted; the call fails if the file '
+			. 'is not there to hash), release_notes (HTML), '
 			. 'release_date (YYYY-MM-DD HH:MM:SS, default now), is_latest (1 to mark this as '
 			. 'the served-update version — UNSETS is_latest on other versions of the same '
 			. 'package), is_stable, min_joomla_version (default "5.0"), '
@@ -44,7 +45,7 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 				'package_id'         => ['type' => 'integer'],
 				'version'            => ['type' => 'string'],
 				'filename'           => ['type' => 'string'],
-				'sha256'             => ['type' => 'string', 'description' => 'Hex SHA-256. Auto-computed from the file if omitted.'],
+				'sha256'             => ['type' => 'string', 'description' => 'Hex SHA-256. Computed from the file in the package downloads folder if omitted.'],
 				'release_notes'      => ['type' => 'string'],
 				'release_date'       => ['type' => 'string', 'description' => 'MySQL datetime. Default now.'],
 				'is_latest'          => ['type' => 'integer', 'enum' => [0, 1]],
@@ -70,12 +71,30 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 		$version   = $this->requireString($arguments, 'version');
 		$filename  = $this->requireString($arguments, 'filename');
 
+		$sha256     = strtolower(trim((string) ($arguments['sha256'] ?? '')));
+		$shaSource  = 'supplied';
+		$fileOnDisk = null;
+
+		if ($sha256 !== '' && !preg_match('/^[0-9a-f]{64}$/', $sha256)) {
+			return ToolResult::error('sha256 must be 64 hex characters. Omit it to have it computed from the file.');
+		}
+
+		if ($sha256 === '') {
+			$hashed = $this->csrmHashVersionFile($packageId, $filename);
+			if ($hashed['hash'] === null) {
+				return ToolResult::error('No version was created: sha256 was omitted and could not be computed. ' . $hashed['error']);
+			}
+			$sha256     = $hashed['hash'];
+			$shaSource  = 'computed';
+			$fileOnDisk = $hashed['path'];
+		}
+
 		$data = [
 			'id'                 => 0,
 			'package_id'         => $packageId,
 			'version'            => $version,
 			'filename'           => $filename,
-			'sha256'             => (string) ($arguments['sha256'] ?? ''),
+			'sha256'             => $sha256,
 			'release_notes'      => (string) ($arguments['release_notes'] ?? ''),
 			'release_date'       => (string) ($arguments['release_date'] ?? gmdate('Y-m-d H:i:s')),
 			'is_latest'          => isset($arguments['is_latest']) ? (int) $arguments['is_latest'] : 1,
@@ -93,12 +112,24 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 			return ToolResult::error('cs-release-manager rejected the package version: ' . ($result['error'] ?: 'unknown error'));
 		}
 
+		$stored = $this->csrmStoredSha256($result['id']);
+		if ($stored !== $sha256) {
+			return ToolResult::error(
+				'Package version ' . $result['id'] . ' was created, but its stored sha256 is "' . $stored
+				. '" rather than ' . $sha256 . '. Fix it with update_release_manager_package_version before publishing.'
+			);
+		}
+
 		$response = [
 			'ok'         => true,
 			'id'         => $result['id'],
 			'package_id' => $packageId,
 			'version'    => $version,
 			'filename'   => $filename,
+			'sha256'     => $stored,
+			'sha256_source' => $shaSource === 'computed'
+				? 'computed from ' . $fileOnDisk
+				: 'supplied by the caller',
 			'is_latest'  => $data['is_latest'],
 			'edit_url'   => 'index.php?option=com_csreleasemanager&task=packageversion.edit&id=' . $result['id'],
 		];

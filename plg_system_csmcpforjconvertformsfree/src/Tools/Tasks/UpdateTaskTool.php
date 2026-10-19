@@ -23,7 +23,10 @@ final class UpdateTaskTool extends AbstractTool
 			. '(email recipient, subject, body, …) or conditions. The options patch '
 			. 'is MERGED into the existing options — send only what you want to '
 			. 'change, and null to remove a key. Pass replace_options=true to '
-			. 'overwrite the whole object instead.';
+			. 'overwrite the whole object instead. The task is re-read from the '
+			. 'database after saving and every requested change is verified against '
+			. 'the stored row; if any did not land, the call fails and says which. '
+			. 'Unknown argument names are refused rather than ignored.';
 	}
 
 	public function getInputSchema(): array
@@ -34,7 +37,8 @@ final class UpdateTaskTool extends AbstractTool
 			'properties' => [
 				'id'      => ['type' => 'integer', 'description' => 'Task id.'],
 				'title'   => ['type' => 'string'],
-				'enabled' => ['type' => 'boolean'],
+				'enabled' => ['type' => 'boolean', 'description' => 'true = the task runs on new submissions.'],
+				'state'   => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'Alias for enabled, matching the column name get_convertforms_task returns (1 = enabled, 0 = disabled).'],
 				'options' => ['type' => 'object', 'description' => 'Merge patch over the task options. null removes a key.'],
 				'replace_options' => ['type' => 'boolean', 'description' => 'Replace options wholesale instead of merging. Default false.'],
 				'conditions' => ['type' => 'object', 'description' => 'Replace the condition sets. Pass {} to make the task unconditional.'],
@@ -59,6 +63,31 @@ final class UpdateTaskTool extends AbstractTool
 		}
 
 		$id = $this->requirePositiveInt($arguments, 'id');
+
+		// The core does not enforce additionalProperties, so an argument this tool
+		// does not know would otherwise be dropped silently while the call still
+		// reported success (GitHub issue #4: `state` was passed, ignored, and the
+		// caller believed the task had been enabled). Refuse instead.
+		$known   = array_keys($this->getInputSchema()['properties']);
+		$unknown = array_values(array_diff(array_keys($arguments), $known));
+		if ($unknown !== []) {
+			return ToolResult::error(
+				'Unknown argument(s): ' . implode(', ', $unknown) . '. Nothing was changed. '
+				. 'Accepted: ' . implode(', ', $known) . '.'
+			);
+		}
+
+		if (array_key_exists('state', $arguments)) {
+			$stateArg = filter_var($arguments['state'], FILTER_VALIDATE_INT);
+			if ($stateArg !== 0 && $stateArg !== 1) {
+				return ToolResult::error('state must be 0 (disabled) or 1 (enabled). Nothing was changed.');
+			}
+			if (array_key_exists('enabled', $arguments) && (bool) $arguments['enabled'] !== ($stateArg === 1)) {
+				return ToolResult::error('state and enabled disagree. Send one of them. Nothing was changed.');
+			}
+			$arguments['enabled'] = $stateArg === 1;
+			unset($arguments['state']);
+		}
 
 		$row = $this->db->setQuery(
 			$this->db->getQuery(true)
@@ -152,17 +181,87 @@ final class UpdateTaskTool extends AbstractTool
 			return ToolResult::error('Task update failed at store: ' . $table->getError());
 		}
 
+		if ((int) $table->id !== $id) {
+			return ToolResult::error(
+				'Task update wrote row ' . (int) $table->id . ' instead of updating task ' . $id
+				. '. Task ' . $id . ' was not changed; inspect row ' . (int) $table->id . ' and delete it if it is a stray copy.'
+			);
+		}
+
+		// Never report success on the strength of store() alone: re-read the row
+		// and confirm each requested change is what is now stored.
+		$after = $this->db->setQuery(
+			$this->db->getQuery(true)
+				->select('*')
+				->from($this->db->quoteName($this->cfTableName('tasks')))
+				->where($this->db->quoteName('id') . ' = ' . $id)
+		)->loadAssoc();
+
+		if (!$after) {
+			return ToolResult::error('Task ' . $id . ' could not be re-read after saving, so the update cannot be confirmed.');
+		}
+
+		$storedOptions    = $this->cfDecodeParams($after['options']);
+		$storedConditions = $this->cfDecodeParams($after['conditions']);
+
+		$expected = [
+			'title'         => [$data['title'], (string) $after['title']],
+			'enabled'       => [$data['state'] === 1, (int) $after['state'] === 1],
+			'action'        => [$data['action'], (string) $after['action']],
+			'connection_id' => [$data['connection_id'], $after['connection_id'] === null ? null : (int) $after['connection_id']],
+			'silentfail'    => [$data['silentfail'] === 1, (int) $after['silentfail'] === 1],
+			'options'       => [$this->canonicalJson($options), $this->canonicalJson($storedOptions)],
+			'conditions'    => [$this->canonicalJson($conditions), $this->canonicalJson($storedConditions)],
+		];
+
+		$notApplied = [];
+		foreach (array_unique($touched) as $key) {
+			if (isset($expected[$key]) && $expected[$key][0] !== $expected[$key][1]) {
+				$notApplied[$key] = ['requested' => $expected[$key][0], 'stored' => $expected[$key][1]];
+			}
+		}
+
+		if ($notApplied !== []) {
+			return ToolResult::error(
+				'Task ' . $id . ' was saved but these changes are not in the stored row: '
+				. json_encode($notApplied, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+			);
+		}
+
 		return ToolResult::json([
-			'ok'      => true,
-			'id'      => $id,
-			'form_id' => $data['form_id'],
-			'app'     => $data['app'],
-			'action'  => $data['action'],
-			'title'   => $data['title'],
-			'enabled' => $data['state'] === 1,
-			'changed' => array_values(array_unique($touched)),
-			'options' => $options,
-			'conditions' => $conditions,
+			'ok'         => true,
+			'id'         => $id,
+			'form_id'    => (int) $after['form_id'],
+			'app'        => (string) $after['app'],
+			'action'     => (string) $after['action'],
+			'title'      => (string) $after['title'],
+			'state'      => (int) $after['state'],
+			'enabled'    => (int) $after['state'] === 1,
+			'silentfail' => (int) $after['silentfail'] === 1,
+			'modified'   => $after['modified'],
+			'changed'    => array_values(array_unique($touched)),
+			'verified'   => 'Re-read from the database after saving; every requested change is stored.',
+			'options'    => $storedOptions,
+			'conditions' => $storedConditions,
 		]);
+	}
+
+	/**
+	 * Key-order-independent JSON for comparing a requested array with the
+	 * stored, decoded one.
+	 */
+	private function canonicalJson(mixed $value): string
+	{
+		$sort = static function (mixed $v) use (&$sort): mixed {
+			if (!is_array($v)) {
+				return $v;
+			}
+			if (!array_is_list($v)) {
+				ksort($v);
+			}
+			return array_map($sort, $v);
+		};
+
+		return (string) json_encode($sort($value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 	}
 }

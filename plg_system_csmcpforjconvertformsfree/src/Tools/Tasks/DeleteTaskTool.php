@@ -71,7 +71,7 @@ final class DeleteTaskTool extends AbstractTool
 
 		$rows = $this->db->setQuery(
 			$this->db->getQuery(true)
-				->select(['id', 'form_id', 'title', 'app', 'state'])
+				->select($this->db->quoteName(['id', 'form_id', 'title', 'app', 'state']))
 				->from($this->db->quoteName($table))
 				->whereIn($this->db->quoteName('id'), $ids)
 		)->loadAssocList() ?: [];

@@ -134,7 +134,7 @@ final class GetSubmissionTool extends AbstractTool
 		}
 
 		$q = $this->db->getQuery(true)
-			->select(['id', 'meta_type', 'meta_key', 'meta_value', 'params', 'date_created', 'date_modified'])
+			->select($this->db->quoteName(['id', 'meta_type', 'meta_key', 'meta_value', 'params', 'date_created', 'date_modified']))
 			->from($this->db->quoteName($this->cfTableName('submission_meta')))
 			->where($this->db->quoteName('submission_id') . ' = ' . $submissionId)
 			->order($this->db->quoteName('id') . ' ASC');

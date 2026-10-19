@@ -49,7 +49,7 @@ final class GetDashboardSummaryTool extends AbstractTool
 
 		$forms = $this->db->setQuery(
 			$this->db->getQuery(true)
-				->select(['id', 'name', 'state'])
+				->select($this->db->quoteName(['id', 'name', 'state']))
 				->from($this->db->quoteName($this->cfTableName()))
 				->order($this->db->quoteName('id') . ' ASC')
 		)->loadAssocList() ?: [];

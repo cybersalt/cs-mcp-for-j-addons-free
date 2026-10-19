@@ -15,7 +15,7 @@
 	loses to the published 1.10.2 and Joomla would offer sites the older code
 	as an "update". Rejoining the real line at 1.11.0 fixes that for good.
 	-->
-	<version>1.11.1</version>
+	<version>1.11.2</version>
 	<description>PLG_SYSTEM_CSMCPFORJRELEASEMANAGER_XML_DESCRIPTION</description>
 
 	<namespace path="src">Cybersalt\Plugin\System\Csmcpforjreleasemanager</namespace>

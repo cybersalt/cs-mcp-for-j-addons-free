@@ -23,10 +23,10 @@ use Joomla\CMS\User\User;
  *
  * Calling pattern:
  *   1. start_akeeba_backup() → returns { backup_id, tag, status }
- *   2. while status.HasRun != 1 and status.Error == '':
- *        status = step_akeeba_backup(backup_id, tag)
- *   3. When status.HasRun == 1 → done. Look up the new record id via
- *      list_akeeba_backups (filter origin='json' or matching backupid).
+ *   2. while done == false:
+ *        result = step_akeeba_backup(backup_id, tag)
+ *   3. done == true → check succeeded (true = complete, false = failed).
+ *      record.id is the #__akeebabackup_backups row for this run.
  *
  * Origin tag defaults to 'json' so the new record is distinguishable from
  * backend / frontend / cli backups in the activity log.
@@ -39,12 +39,17 @@ final class StartAkeebaBackupTool extends AbstractTool
 	{
 		return 'Kick off an Akeeba Backup using the specified profile. Akeeba\'s engine '
 			. 'is step-chunked: this call does the engine setup + initial tick and returns '
-			. 'a backup_id + tag that you MUST pass to step_akeeba_backup repeatedly until '
-			. 'status.HasRun == 1 (done) or status.Error is non-empty. Arguments: profile_id '
+			. 'a backup_id + tag that you MUST pass to step_akeeba_backup repeatedly while '
+			. 'done is false. done=true means stop: succeeded=true is a finished backup, '
+			. 'succeeded=false (state "failed", returned as an error) is a failed one. The '
+			. 'profile\'s own settings (output folder, filters, archive format) are loaded, '
+			. 'and an encrypted profile that cannot be decrypted is refused rather than run on '
+			. 'defaults. Arguments: profile_id '
 			. '(default 1 — the Default Backup Profile), description (default auto-generated), '
 			. 'comment (default empty), tag (origin label; default "json"). Returns: '
-			. '{backup_id, tag, profile_id, status} where status is Akeeba\'s engine status '
-			. 'array (HasRun, Domain, Step, Substep, Error, Warnings, Progress).';
+			. '{backup_id, tag, profile_id, output_directory, state (running|complete|failed), '
+			. 'done, succeeded, record (the backup row: id, archive path), next_action, status} '
+			. 'where status is Akeeba\'s raw engine status array.';
 	}
 
 	public function getInputSchema(): array
@@ -80,6 +85,23 @@ final class StartAkeebaBackupTool extends AbstractTool
 			\define('AKEEBA_PROFILE', $profileId);
 		}
 
+		$profileExists = (int) $this->db->setQuery(
+			$this->db->getQuery(true)
+				->select('COUNT(*)')
+				->from($this->db->quoteName('#__akeebabackup_profiles'))
+				->where($this->db->quoteName('id') . ' = ' . $profileId)
+		)->loadResult();
+
+		if ($profileExists === 0) {
+			return ToolResult::error('Akeeba Backup profile ' . $profileId . ' does not exist. Nothing was started. Use list_akeeba_profiles.');
+		}
+
+		// Load the profile the way Akeeba's own Dispatcher does before any backup
+		// work, and refuse if an encrypted profile cannot be decrypted. Without
+		// this the backup silently ran on default settings (GitHub issue #2 and
+		// the countdownvideomaker.com failure, 2026-10-16).
+		$outputDirectory = AkeebaEngineBootstrap::loadProfileConfiguration($profileId);
+
 		// Pin the backup origin tag so it actually lands on the backup record's
 		// `origin` column. Without this, Akeeba's Platform::get_backup_origin()
 		// detects the running context, finds nothing it recognises (API app
@@ -108,11 +130,15 @@ final class StartAkeebaBackupTool extends AbstractTool
 		// out so the caller can pass it to step_akeeba_backup.
 		$backupId = (string) $model->getState('backupid', '');
 
+		$outcome = AkeebaEngineBootstrap::describeOutcome($status, $backupId);
+
 		return ToolResult::json([
-			'backup_id'  => $backupId,
-			'tag'        => $tag,
-			'profile_id' => $profileId,
-			'status'     => $status,
-		]);
+			'backup_id'        => $backupId,
+			'tag'              => $tag,
+			'profile_id'       => $profileId,
+			'output_directory' => $outputDirectory,
+		] + $outcome + [
+			'status' => $status,
+		], $outcome['state'] === 'failed');
 	}
 }

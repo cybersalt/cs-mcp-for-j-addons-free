@@ -68,7 +68,7 @@ final class SetFormStateTool extends AbstractTool
 
 		$existing = $this->db->setQuery(
 			$this->db->getQuery(true)
-				->select(['id', 'name'])
+				->select($this->db->quoteName(['id', 'name']))
 				->from($this->db->quoteName($table))
 				->whereIn($this->db->quoteName('id'), $ids)
 		)->loadAssocList('id') ?: [];

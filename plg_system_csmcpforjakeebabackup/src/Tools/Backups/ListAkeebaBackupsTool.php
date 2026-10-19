@@ -192,10 +192,11 @@ final class ListAkeebaBackupsTool extends AbstractTool
 		}, $rows);
 
 		return ToolResult::json([
-			'count'   => count($out),
-			'limit'   => $limit,
-			'offset'  => $offset,
-			'backups' => $out,
+			'count'    => count($out),
+			'limit'    => $limit,
+			'offset'   => $offset,
+			'timezone' => 'UTC (backupstart and backupend are stored in UTC, as Akeeba records them)',
+			'backups'  => $out,
 		]);
 	}
 

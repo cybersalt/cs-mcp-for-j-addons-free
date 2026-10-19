@@ -69,6 +69,7 @@ final class GetAkeebaBackupInfoTool extends AbstractTool
 			'comment'          => (string) $r['comment'],
 			'backupstart'      => $r['backupstart'] ?: null,
 			'backupend'        => $r['backupend'] ?: null,
+			'timezone'         => 'UTC',
 			'status'           => (string) $r['status'],
 			'origin'           => (string) $r['origin'],
 			'profile_id'       => (int) $r['profile_id'],
