@@ -1,0 +1,12 @@
+<div class="changelog-container">
+<h1>📋 MCP for Joomla: Maximenu CK add-on — Changelog</h1>
+<h2>🚀 Version 1.0.0 (October 19, 2026)</h2>
+<ul>
+<li>🚀 Initial release: 11 tools for Maximenu CK (Light and Pro), covering modules, styles, custom CSS, the compiled-CSS cache, each menu's mega-menu column layout and a panel-overflow check.</li>
+<li>✏️ <strong><code>write_maximenuck_style_custom_css</code> writes to the place that renders.</strong> Maximenu v9+ takes its CSS from the style row (<code>#__maximenuck_styles</code>); a module's own <code>customcss</code> param is a hidden v8 field that is never output. The style editor also bakes a second copy of the custom CSS onto the end of <code>layoutcss</code>, with <code>|ID|</code> expanded differently from the raw copy, so writing <code>customcss</code> alone leaves the old rules live and makes the editor's own bare-<code>|ID|</code> convention match nothing. The tool replaces that baked copy exactly when it can identify it, and refuses to write rules it can prove will not apply.</li>
+<li>🧹 <strong>Clears the compiled CSS that hides changes.</strong> With "Load compiled CSS" set to Yes, Maximenu writes <code>maximenuck_&lt;id&gt;.css</code> once and serves it for ever. Writes delete it; <code>clear_maximenuck_compiled_css</code> does it on its own.</li>
+<li>🌐 <strong>Warns that the compiled file has no cache-buster.</strong> Maximenu links <code>maximenuck_&lt;id&gt;.css</code> with no version query, so a CDN or browser that cached it keeps serving the old CSS. On the test site Cloudflare served the pre-change file with a 30-day max-age. Every write and clear returns the exact URL to purge, or suggests inlining the CSS (<code>loadcompiledcss = 0</code>).</li>
+<li>📐 <strong>Mega-menu layout and overflow, computed as the renderer computes it.</strong> Shows each dropdown's columns and the panel width Maximenu will set, and flags the classic mistakes: the first child not being a column start (column 1 is unsized and the last column drops underneath), columns wider than an explicit submenu width, rows inflating the panel, mixed units, and panels wider than a width you give.</li>
+<li>🔒 Writing per-item mega-menu settings is a Maximenu CK Pro feature (Light's own menu manager refuses it), so it is not offered here. It ships in the separate Pro add-on, which also refuses on Light.</li>
+</ul>
+</div>
