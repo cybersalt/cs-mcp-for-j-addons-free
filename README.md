@@ -15,6 +15,11 @@ Each plugin in this repo is a standalone Joomla system plugin that subscribes to
 | `plg_system_csmcpforjconvertformsfree` | [Convert Forms](https://www.tassos.gr/joomla-extensions/convert-forms) by Tassos Marinos | 30 tools: forms (list/get/create/update/duplicate/publish/delete), individual form fields (add/update/delete/reorder, with the field-type registry discovered from the install), submissions (list/get/correct/set state/delete, with answers resolved to their field labels), Tasks — the on-submission engine behind email notifications and app integrations — plus connections, task history and reporting. Works with **both the free and Pro editions**, and detects which one it is: Pro-only field types and apps light up automatically where present and are reported as locked where they are not. Pro-specific tooling ships separately in the Pro add-on repo. |
 | `plg_system_csmcpforjpagebuilderckfree` | [Page Builder CK](https://www.joomlack.fr/en/joomla-extensions/page-builder-ck) by Cédric Keiflin | 30 tools across 7 categories over the five `#__pagebuilderck_*` tables: pages (CRUD, state, duplicate), the block tree parsed out of the `htmlcode` column (outline, per-block read, whole-content write, and surgical add / update / move / delete), rows and columns, styles and the page-to-style link, categories, saved elements, fonts (read-only), the `.pbck` backup history with restore, and a site-wide health audit. Works with **both the Light and Pro editions** and reports which it found. Pro-only tooling ships separately in the Pro add-on repo — and additionally refuses unless the vendor's own Pro build is installed. See below. |
 | `plg_system_csmcpforjatsfree` | [Akeeba Ticket System](https://www.akeeba.com/products/ats.html) by Akeeba Ltd | 30 tools over the Core (free) edition's surface: tickets (list/get/create/update, status, public/private, assignment, delete), posts — the replies, including each ticket's opening message — invited collaborators, ticket managers and assignees, categories with their ATS-specific params, statuses, triage reporting (summary, stale tickets, per-agent workload), config and health diagnostics, plus a scoped table reader. Writes go through ATS' own `AdminModel`s so the status matrix, permission checks and notification emails all fire. Works with **both the Core and Professional editions**, detecting which via the vendor's own `ATS_PRO` constant. Pro-only tooling ships separately in the Pro add-on repo. See below. |
+| `plg_system_csmcpforjacymailingfree` | [AcyMailing](https://www.acymailing.com/) by Acyba | 33 tools covering everything Starter can do, on every edition: lists, subscribers and subscriptions (people who unsubscribed are not re-added unless you say so), campaign drafts, confirm-gated test sends and queueing (a dry run by default, with an expected-recipient check), queue pause and cancel, stats, list-overlap / duplicate / Events Booking sync reports, guarded config and a redacted table reader. Nothing mails anyone by default. Essential and Enterprise tools ship in the Pro repo. See below. |
+| `plg_system_csmcpforjcommunitybuilder` | [Community Builder](https://www.joomlapolis.com) by Joomlapolis | 32 tools: members (Joomla account and CB profile), registration moderation (approve, reject, confirm, ban, block, with **every CB email held back unless `send_email: true`**), pending registrations, custom fields and their option lists (created and deleted through CB's own `FieldTable`, so the `#__comprofiler` column follows), profile tabs, connections, user reports, lists, CB plugins, validated config writes, a **registration-email audit** that catches an empty `[CONFIRM]` link, and a redacted table reader. CB core only. See below. |
+| `plg_system_csmcpforjcpnbfree` | [Cookies Policy Notification Bar](https://www.web357.com/cookies-policy-notification-bar-joomla-plugin) by Web357 | 14 tools: the bar's position, behaviour, colours and button order, consent-cookie settings, the Cookies Manager, menu visibility, cookie categories and declarations, default-language texts, and diagnostics including a rendered-page check. Works with both editions and refuses to write Pro settings on the free build. Pro tools ship in the Pro repo. See below. |
+| `plg_system_csmcpforjflexbanners` | [FlexBanners](https://extensions.joomla.org/extension/flexbanner/) by Inch Hosting | 26 tools: banners (list, get, create, update, state, reset counters, delete), locations (ad groups), `mod_flexbanners` modules including **`create_flexbanners_location_module`, which makes a new location plus a cloned module in one call (the "add another row of ads" job)**, click-through links, clients, size presets, impression and click statistics, and a health check that names every banner that is not showing and why. Built against 5.1.10, checked against 6.0.05. See below. |
+| `plg_system_csmcpforjmaximenuckfree` | [Maximenu CK](https://www.joomlack.fr/en/joomla-extensions/maximenu-ck) by Cédric Keiflin | 11 tools: modules, styles and their custom CSS (written to the style row the menu actually renders, with the editor's second copy kept in step), the compiled-CSS cache, each menu's mega-menu column layout worked out the way the renderer does, and a panel-overflow check. Works with **Light and Pro**. Writing per-item mega-menu settings is Pro-only and ships in the Pro repo. See below. |
 | `plg_system_csmcpforjj2commerce` | [J2Commerce 6](https://www.j2commerce.com) by J2Commerce, LLC | 43 tools across 10 categories: products (the article-backed product row and its variants: list, assembled get, create-from-article, targeted product and variant updates, delete through the vendor's own cascade), tier/group/date prices, stock through J2Commerce's atomic stock writers, orders (list, full get, statuses, status change through the vendor's own `updateOrderStatus` with a side-effect dry run, private or customer-visible notes, tracking), customers assembled from addresses **and** orders, coupons with derived usage, gift vouchers with vendor-derived balances and masked codes, store lookups (currencies, countries/zones, geozones, manufacturers, options, shipping, payment methods with credentials withheld), sales and best-seller reports, and diagnostics including a tax-chain audit for silent zero tax. J2Commerce 6 only, not J2Store 4. See below. |
 
 ### A note on the Akeeba Ticket System add-on
@@ -85,6 +90,70 @@ Behaviour found by driving a real checkout and admin on 6.6.5:
 - **An advanced price applies only when below the base price**, and `customer_group_id` 0 matches no shopper. Both are refused up front.
 
 **Secrets.** The guest order-view `token`, raw gateway `transaction_details`, stored payment profiles, IPs, `queue_key` (cron secret and payment-hash HMAC key) and the download ID are never returned. Voucher codes are masked unless explicitly revealed with edit permission. J2Commerce's own `GET /v1/j2commerce/config` returns `queue_key` and `downloadid` in cleartext, and its voucher REST list returns full codes.
+
+### A note on the AcyMailing add-on
+
+**The edition is one configuration row.** AcyMailing's Starter, Essential and Enterprise builds are almost the same code. Every feature check calls `acym_level()`, which reads `#__acym_configuration.level` and drops an expired trial back to Starter. This add-on covers everything Starter can do and works on all three editions. Essential and Enterprise features ship in the Pro repo, gated on `acym_level()`. The config tool here refuses to write `level`, the licence fields, or values AcyMailing only allows on a higher edition.
+
+**Nothing mails anyone by default.** Confirmation, welcome, goodbye and admin-notification emails are all off unless a flag asks for them. `queue_acym_campaign` is a dry run unless it gets `dry_run: false`, `confirm: true` and an `expected_recipients` that equals the live, deduplicated count. Test sends need `confirm: true` and go to at most five addresses. Campaigns that use a segment or an A/B test are refused, because their recipient count can't be predicted.
+
+Behaviour worth knowing:
+
+- **Subjects and bodies are stored double-encoded**, so raw SQL shows "café" as "cafÃ©". The tools decode and encode the same way AcyMailing does.
+- **A partial save blanks fields.** Saving a list without every field empties its description and translations, and a mail does the same to its access restriction. Write tools load the row first.
+- **Under the API, campaign and subscriber deletes silently skip anything the token owner didn't create.** The delete tools report what was actually removed.
+- **The subscriber counts stored on each list are a cache and usually wrong.** Every count here is computed live.
+- **`check_acym_eventbooking_sync`** checks that Events Booking registrants have reached their AcyMailing list. Syncing them there is the practical fix for Events Booking's Mass Mail not deduplicating across events.
+- **It can't be installed through `install_extension`.** AcyMailing's package script calls the router, which doesn't exist under the API app. Install it from the Joomla admin.
+
+Tool names use the `acym_` token: `php tests/verify-addon.php plg_system_csmcpforjacymailingfree acym_`.
+
+### A note on the Community Builder add-on
+
+**CB's own code does not survive Joomla's API application as-is.** Every CB email builds its `[CONFIRM]` link through `getMenu()`, which throws under the ApiApplication. Approving a member would store the approval, unblock them, and then die before the welcome email. So every CB call here runs inside a temporary AdministratorApplication, which is the context CB's moderation code is written for.
+
+**No tool sends mail by accident.** A listener on CB's own `onBeforeSendMail` event holds back every email unless the caller passes `send_email: true`. Every attempted email is returned in the response as CB built it, with confirmation codes and generated passwords masked. Under the API app CB's site URL ends in `/api`, so the listener also rewrites every link in the email before anything is sent.
+
+Behaviour found by driving CB 2.12.0 live:
+
+- **With "Generate Registration Passwords" on, approving or confirming a member replaces their password.** Only the welcome email delivers the new one, so those tools refuse unless `send_email` is true.
+- **`[CONFIRM]` renders as nothing when email confirmation is off.** `get_cb_registration_config` flags it, and also catches confirmation with no Pending email, generated passwords that no email delivers, and approval alerts that no moderator receives.
+- **Deleting a field drops its column and every member's answer**, despite a comment in `FieldTable::delete()` saying the data is kept. `delete_cb_field` requires `confirm_data_loss`.
+- **The first CB save of a user created outside CB writes a stray activation code into `#__users.activation`.** `update_cb_user_fields` first creates the profile row the way CB's Synchronize Users does.
+- **Members store an option's text, not its id**, and CB's option save deletes whatever isn't resubmitted. So `set_cb_field_values` takes the complete list and refuses to orphan members' answers.
+- **A CB ban hides the profile but does not stop login.**
+
+CB core only; CB's paid add-ons are not covered. The confirmation code, registration IPs, password columns, CB plugin params and the Joomlapolis install key are never returned. Tool names use the `cb_` token: `php tests/verify-addon.php plg_system_csmcpforjcommunitybuilder cb_`.
+
+### A note on the Cookies Policy Notification Bar add-on
+
+**Covers what the free edition can do, and works on both.** The edition is read from the manifest's `<variant>` tag and Web357's own `isProVersion()` flag (the flag wins if they disagree). Blocking rules, consent logs, GeoIP, multilingual texts and import/export are Pro features and ship in the Pro repo. On a free install, the tools here refuse to write Pro-only settings.
+
+**If CPNB's system plugin is disabled, its own settings save wipes the configuration.** One save took the settings from 434 keys to 2, and the dashboard still looked normal. The tools pass the stored settings to the save themselves, and refuse unknown keys because CPNB drops them silently. `check_cpnb_frontend` fetches the home page and checks that the bar reflects the saved settings.
+
+### A note on the FlexBanners add-on
+
+**On Joomla 6, FlexBanners itself needs "Behaviour - Backward Compatibility 6".** In both 5.1.10 and 6.0.05, `FlexbannersComponent.php` opens with `defined('JPATH_PLATFORM') or die`, and Joomla 6 defines that constant only in the compatibility plugin. Without it the component dies silently on load: a page showing banners returns HTTP 200 containing nothing but `<div class="flexbannergroup">`. If the module gets there first, it fails with `Class "JRoute" not found`. `check_flexbanners_health` reports both. The tools themselves never boot the component, so they work either way.
+
+**Every banner tool says whether the banner will actually show.** mod_flexbanners' query is strict and silent. It requires a valid size and category, `state = 1` and `finished = 0`, and a language of `*` or the site's *default* language, not the page's. It also shows exactly one location per module. The tools apply the same rules and name the one that fails.
+
+**Writes are targeted SQL.** FlexBanners' own banner save can't be driven from outside its admin form. It stores every article restriction as article 0, always clears "finished", and turns an unknown category id into a new category. Module rows go through Joomla's own module model. `create_flexbanners_location_module` makes a new location and a cloned module in one call, which is the "add another row of ads" job.
+
+Other behaviour:
+
+- **Expiry and limits:** 5.1.x never enforces end dates or impression/click limits. 6.x enforces them on every page view and re-publishes unpublished banners whose start date has passed.
+- **Clicks aren't bot-filtered.** Impressions are, so click-through can exceed 100%.
+- **Statistics are lifetime totals.** FlexBanners keeps no per-day history.
+
+### A note on the Maximenu CK add-on
+
+**Covers Light and Pro; per-item mega-menu writes are Pro.** Light and Pro are separate builds, and the edition is read from the `<ckpro>` flag in the installed component manifest, the way Maximenu's own installer reads it. In Light's menu manager, every per-item mega-menu control (columns, widths, rows, submenu size, icons, modules) shows "Pro only" instead of saving. So this add-on *reads* those settings, and writing them ships in `csmcpforjmaximenuckpro`.
+
+**Custom CSS lives twice on the style row.** `customcss` holds the raw copy, where `|ID|` becomes the bare menu id, so only `#|ID|` rules work there. Maximenu's style editor also appends a second copy to the end of `layoutcss`, where only bare `|ID|` rules work. Writing `customcss` alone leaves the old rules live. `write_maximenuck_style_custom_css` keeps both copies in step, and a later editor re-save leaves the row byte-identical. The module's own `customcss` param is dead code in v9+.
+
+**The compiled CSS file has no cache-buster.** Maximenu links `maximenuck_<id>.css` with no version query, so a CDN keeps serving the old file. With "Load compiled CSS = Yes", the file isn't rebuilt at all until it's deleted. Every CSS write and `clear_maximenuck_compiled_css` return the exact URL to purge.
+
+**Column arithmetic:** the panel width is the sum of every column's width across all rows. The first child must be marked as a column start, or column 1 is unsized and the last columns drop underneath. `check_maximenuck_panel_overflow` works the panel width out the way the renderer does.
 
 ## Requirements
 
