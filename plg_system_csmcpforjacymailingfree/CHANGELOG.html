@@ -1,0 +1,107 @@
+<div class="changelog-container">
+<h1>📋 MCP for Joomla: AcyMailing (Starter) add-on — Changelog</h1>
+<p><code>plg_system_csmcpforjacymailingfree</code>. Versions are independent of every other
+add-on in this repo and of cs-mcp-for-j core.</p>
+<h2>🚀 Version 1.0.0 (October 19, 2026)</h2>
+<p>First release. 33 tools for <strong>AcyMailing</strong> (<code>com_acym</code>) by Acyba, covering
+everything AcyMailing <strong>Starter</strong> can do, on every edition. Built from the
+10.11.1 Starter / Essential / Enterprise and 11.1.0 Enterprise packages and
+driven live on Joomla 6.2.0 / PHP 8.3 against Starter 10.11.1, Essential
+10.11.1 and Enterprise 11.1.0. Capabilities AcyMailing reserves for Essential
+or Enterprise are in the separate Pro add-on, which shares no tool name.</p>
+<h3>✨ New</h3>
+<ul>
+<li><strong>Diagnostics</strong> — <code>get_acym_component_info</code>, <code>check_acym_health</code>,
+  <code>get_acym_config</code>, <code>set_acym_config</code>, <code>list_acym_tables</code>, <code>query_acym_table</code>.</li>
+<li><strong>Lists</strong> — <code>list_acym_lists</code>, <code>get_acym_list</code>, <code>create_acym_list</code>,
+  <code>update_acym_list</code>, <code>delete_acym_list</code>.</li>
+<li><strong>Subscribers</strong> — <code>list_acym_subscribers</code>, <code>get_acym_subscriber</code>,
+  <code>create_acym_subscriber</code>, <code>update_acym_subscriber</code>, <code>delete_acym_subscriber</code>,
+  <code>subscribe_acym_subscribers</code>, <code>unsubscribe_acym_subscribers</code>.</li>
+<li><strong>Reports</strong> — <code>get_acym_list_membership_report</code>,
+  <code>check_acym_subscriber_duplicates</code>, <code>check_acym_eventbooking_sync</code>,
+  <code>get_acym_campaign_stats</code>.</li>
+<li><strong>Campaigns</strong> — <code>list_acym_campaigns</code>, <code>get_acym_campaign</code>,
+  <code>create_acym_campaign</code>, <code>update_acym_campaign</code>, <code>delete_acym_campaign</code>,
+  <code>list_acym_templates</code>.</li>
+<li><strong>Sending</strong> — <code>send_acym_test_email</code>, <code>queue_acym_campaign</code>,
+  <code>get_acym_queue_status</code>, <code>cancel_acym_campaign_sending</code>,
+  <code>set_acym_campaign_paused</code>.</li>
+</ul>
+<h3>🛡 Nothing mails anyone by accident</h3>
+<p>AcyMailing's own classes send mail as a side effect in more places than the
+admin UI suggests, and under Joomla's API application the "admin saves never
+send" exemption (<code>acym_isAdmin()</code>) does not apply:</p>
+<ul>
+<li><code>UserClass::save()</code> ends with <code>sendConfirmation()</code> — creating an unconfirmed
+  subscriber mails the double-opt-in email.</li>
+<li><code>subscribe()</code> mails each list's welcome email; <code>unsubscribe()</code> mails the
+  goodbye email <strong>and</strong> the admin "unsubscribed" notification.</li>
+</ul>
+<p>Every one of those is off by default and has an explicit opt-in flag. The only
+tools that can reach an inbox are <code>send_acym_test_email</code> (max 5 explicit
+addresses, <code>confirm: true</code>) and <code>queue_acym_campaign</code>, which is a dry run by
+default and needs <code>dry_run: false</code>, <code>confirm: true</code> <strong>and</strong>
+<code>expected_recipients</code> equal to the live deduplicated count, so an approval for
+12 people cannot silently become 1,200 because a list changed.
+<code>cancel_acym_campaign_sending</code> reproduces the Queue screen's Cancel exactly.</p>
+<h3>🧨 Vendor behaviour the tools absorb (all confirmed in source and live)</h3>
+<ul>
+<li><strong>Mail text is stored double-encoded.</strong> <code>MailClass</code> runs
+  <code>mb_convert_encoding($s, 'UTF-8', 'ISO-8859-1')</code> on name, subject, body,
+  preheader before saving, so a raw SQL read of "café" returns "cafÃ©". Every
+  read decodes; every write goes through <code>MailClass</code>. <code>query_acym_table</code>
+  decodes mail tables unless <code>raw: true</code>.</li>
+<li><strong>Partial saves delete data.</strong> <code>ListClass::save()</code> forces <code>description = ''</code>
+  and <code>translation = ''</code> when absent, and <code>MailClass::save()</code> forces
+  <code>access = ''</code> — a rename wipes the description, translations or the mail's
+  access restriction. <code>update_acym_list</code> and <code>update_acym_campaign</code> hydrate the
+  whole row first and return a before/after diff.</li>
+<li><strong>Off the admin client, deletes are silently narrowed.</strong>
+  <code>CampaignClass::delete()</code> keeps only campaigns whose mail <code>creator_id</code> is the
+  current Joomla user, and <code>UserClass::delete()</code> only subscribers of the
+  current user's front-end lists. Under MCP that turns "delete" into a silent
+  0-row no-op for anything the token owner did not create. The tools use the
+  admin-client behaviour and verify the rows are gone.</li>
+<li><strong>The list subscriber counters are a cache</strong> refreshed only by an admin AJAX
+  call. Every count here is computed live.</li>
+<li><strong>Re-subscribing an opt-out is one call away.</strong> <code>subscribe()</code> flips an
+  unsubscribe record back to subscribed. <code>subscribe_acym_subscribers</code> skips
+  those unless <code>allow_resubscribe: true</code>.</li>
+<li><strong>Deleting a subscriber erases their opt-out.</strong> The unsubscribe record goes
+  with the row, so a later import re-adds them. The delete tool says so and
+  suggests deactivating.</li>
+<li><strong>Subscribers created through the API get the token owner's language</strong> in
+  the vendor's non-admin branch. The create tool sets AcyMailing's default.</li>
+<li><strong><code>mail.name LIKE '%confirm%'</code> bypasses <code>require_confirmation</code></strong> in
+  <code>QueueClass::getReady()</code>. <code>check_acym_health</code> flags campaign/follow-up mails
+  named like that.</li>
+<li><strong>Confirming a subscriber over MCP stamps the MCP client's IP</strong> as their
+  <code>confirmation_ip</code> — not evidence of consent.</li>
+</ul>
+<h3>🔒 Paywall and secrets</h3>
+<ul>
+<li><code>set_acym_config</code> writes through the vendor's <code>saveConfig()</code> (a per-key
+  <code>REPLACE INTO</code> — it does not truncate), refuses edition and licence state
+  (<code>level</code> is the whole edition gate; writing it would unlock paid features),
+  credentials, cron activation keys (saving them calls acymailing.com), and
+  values AcyMailing itself only allows on a higher edition (non-manual
+  <code>queue_type</code>, <code>multilingual</code>, <code>captcha</code>, hiding the built-by footer). It
+  re-reads the table and proves nothing else changed.</li>
+<li><code>query_acym_table</code> never returns, filters or sorts on the subscriber <code>key</code>
+  (it authorises unsubscribe/profile links), mailbox passwords, add-on
+  settings, or the value of a credential-shaped configuration row.</li>
+<li><code>send_acym_test_email</code> only returns PHPMailer's transcript on failure, with
+  headers dropped: on success it contains the subscriber's <code>userKey</code> in the
+  List-Unsubscribe header (caught live during testing).</li>
+</ul>
+<h3>🏗 Architecture</h3>
+<ul>
+<li>Boots AcyMailing with one include of <code>Core/init.php</code>, inside a guard that
+  strips a trailing <code>/api</code> from <code>Uri::root()</code> so the URL constants AcyMailing
+  defines once (<code>ACYM_LIVE</code> …) point at the site. On Joomla 6.2 the root was
+  already correct; the guard is a no-op there.</li>
+<li>One category, <code>acymailing</code>, for every tool.</li>
+<li>PHP 8.2 minimum (constants in a trait).</li>
+</ul>
+</div>
