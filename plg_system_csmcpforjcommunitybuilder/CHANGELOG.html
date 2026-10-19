@@ -1,0 +1,36 @@
+<h1>MCP for Joomla: Community Builder add-on — Changelog</h1>
+
+<h2>🚀 Version 1.0.0 (October 19, 2026)</h2>
+<p>First release. 32 tools for <strong>Community Builder</strong> (<code>com_comprofiler</code>) by Joomlapolis. Studied against <strong>Community Builder 2.12.0</strong> (2026-08-28) and driven end-to-end on Joomla 6.2.0 / PHP 8.3. Free, because Community Builder is free; CB's paid add-ons (CB Paid Subscriptions, GroupJive, CB Gallery and the rest) are not covered.</p>
+
+<h3>✨ New</h3>
+<ul>
+<li><strong>Diagnostics</strong> — <code>get_cb_component_info</code>, <code>check_cb_health</code>, <code>list_cb_tables</code>, <code>query_cb_table</code>.</li>
+<li><strong>Configuration</strong> — <code>get_cb_registration_config</code> (the sign-up audit), <code>get_cb_config</code>, <code>set_cb_config</code>.</li>
+<li><strong>Members</strong> — <code>list_cb_users</code>, <code>get_cb_user</code>, <code>update_cb_user_fields</code>, <code>list_cb_pending_registrations</code>.</li>
+<li><strong>Moderation</strong> — <code>approve_cb_user</code> (approve or reject), <code>confirm_cb_user</code>, <code>set_cb_user_ban</code>, <code>set_cb_user_block</code>, <code>list_cb_user_reports</code>.</li>
+<li><strong>Fields</strong> — <code>list_cb_fields</code>, <code>get_cb_field</code>, <code>list_cb_field_types</code>, <code>create_cb_field</code>, <code>update_cb_field</code>, <code>delete_cb_field</code>, <code>set_cb_field_values</code>.</li>
+<li><strong>Tabs</strong> — <code>list_cb_tabs</code>, <code>get_cb_tab</code>, <code>create_cb_tab</code>, <code>update_cb_tab</code>, <code>delete_cb_tab</code>.</li>
+<li><strong>Community</strong> — <code>list_cb_connections</code>, <code>list_cb_lists</code>, <code>list_cb_plugins</code>, <code>set_cb_plugin_state</code>.</li>
+</ul>
+
+<h3>🏗 Architecture</h3>
+<ul>
+<li><strong>CB code runs inside a temporary AdministratorApplication.</strong> Every CB email builds the <code>[CONFIRM]</code> link through <code>viewUrl()</code> → <code>CBframework::itemid()</code> → <code>getMenu()</code>, which throws under Joomla's API application (there is no <code>ApiMenu</code>). Left alone, approving a member would store the approval and unblock them, then die before the welcome email. Booting CB as its own back end (<code>getUi() == 2</code>) is also the context its moderation code is written for.</li>
+<li><strong>Every CB email is held back unless <code>send_email: true</code>.</strong> A listener on CB's own <code>onBeforeSendMail</code> event (registered under CB Core, which cannot be unpublished) vetoes the send through the <code>$error</code> argument CB checks, and every attempted email is returned in the response as CB built it. Under the API application CB's <code>live_site</code> ends in <code>/api</code>, so <code>[SITEURL]</code> and the confirmation link would point into the REST API; the listener rewrites them to the site URL. A second listener on <code>onAfterSendEmailMSG</code> reports what the mailer actually returned.</li>
+<li><strong>Writes go through CB's table classes</strong> (<code>UserTable</code>, <code>FieldTable</code>, <code>FieldValueTable</code>, <code>TabTable</code>, <code>PluginTable</code>) so CB's events fire and <code>#__users</code> / <code>#__comprofiler</code> stay in step; every write re-reads the rows and diffs them. Profile values are written with CB's narrow <code>UserTable::storeDatabaseValues()</code>, never the form save, which treats absent checkboxes as unchecked.</li>
+<li><strong>Configuration writes merge</strong>: CB's Configuration save replaces the whole JSON blob, so <code>set_cb_config</code> re-reads it, validates each key against CB's own configuration form XML, merges, and stores through <code>PluginTable</code> so the name-style side effect still happens.</li>
+</ul>
+
+<h3>🐛 Vendor behaviour found and handled (CB 2.12.0, verified live)</h3>
+<ul>
+<li><strong>Approving or confirming resets the password</strong> when "Generate Registration Passwords" is on; only the welcome email carries the new one. The tools refuse unless <code>send_email</code> is true.</li>
+<li><strong><code>[CONFIRM]</code> renders empty</strong> whenever email confirmation is off (<code>cbNotification::_replaceVariables()</code>). <code>get_cb_registration_config</code> flags a Pending email that relies on it.</li>
+<li><strong>Deleting a field drops its column and every member's answer</strong>, despite a comment in <code>FieldTable::delete()</code> saying the data is preserved. <code>delete_cb_field</code> demands <code>confirm_data_loss</code>.</li>
+<li><strong>The first CB save of a user created outside CB writes a stray activation code into Joomla's <code>#__users.activation</code></strong> (CB sees <code>confirmed</code> as NULL). <code>update_cb_user_fields</code> first creates the profile row the way CB's Synchronize Users does, so no code is minted.</li>
+<li><strong>A CB ban hides the profile but does not stop login</strong>; <code>can_log_in</code> reflects CB's real login rules.</li>
+<li>Option lists are a replace-set and members store option <em>text</em>, so <code>set_cb_field_values</code> refuses to orphan members' answers unless told to.</li>
+</ul>
+
+<h3>🔒 Secrets</h3>
+<p>Never returned: <code>#__users</code> password / OTP / activation, <code>#__comprofiler.cbactivation</code> (masked in returned email text too), registration IPs, CB password-field columns, CB plugin params, the Joomlapolis install-from-web key and token, and cleartext passwords CB generates. <code>#__comprofiler_sessions</code> and the private-message tables are refused outright.</p>
