@@ -3,6 +3,11 @@
 `plg_system_csmcpforjacymailingfree`. Versions are independent of every other
 add-on in this repo and of cs-mcp-for-j core.
 
+## 🚀 Version 1.0.1 (October 20, 2026)
+
+- 🐛 **`check_acym_eventbooking_sync` now checks the right plugin.** Its `bridge_plugin` line looked at `plg_acymailing_eventbooking`, which is an old AcyMailing 5 tag plugin that inserts event listings into newsletters and adds nobody to any list. The plugin that actually adds Events Booking registrants to AcyMailing lists is Joomdonation's **Events Booking - AcyMailing** (`plg_eventbooking_acym`), so a site could be told "enabled" while the real sync was off, or the other way round. The line now reports `plg_eventbooking_acym`, and a new `bridge` block shows its default lists, whether the checked list is one of them, and whether registrants must opt in to the newsletter first. If the old tag plugin is also installed, the report says what it is.
+- ✨ **Reports events that feed no list.** The sync plugin takes its lists from each event's own setting and only falls back to the plugin's Default Lists when the event has none. With no default set, a new event that nobody configured adds its registrants to no list, and nothing says so. The new `event_list_settings` block counts the published events in scope that feed the checked list, feed only other lists, or feed **no list**, with upcoming events listed first, and `findings` calls out the gaps. Still read-only.
+
 ## 🚀 Version 1.0.0 (October 19, 2026)
 
 First release. 33 tools for **AcyMailing** (`com_acym`) by Acyba, covering

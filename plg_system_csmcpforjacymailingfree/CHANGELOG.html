@@ -2,6 +2,11 @@
 <h1>📋 MCP for Joomla: AcyMailing (Starter) add-on — Changelog</h1>
 <p><code>plg_system_csmcpforjacymailingfree</code>. Versions are independent of every other
 add-on in this repo and of cs-mcp-for-j core.</p>
+<h2>🚀 Version 1.0.1 (October 20, 2026)</h2>
+<ul>
+<li>🐛 <strong><code>check_acym_eventbooking_sync</code> now checks the right plugin.</strong> Its <code>bridge_plugin</code> line looked at <code>plg_acymailing_eventbooking</code>, which is an old AcyMailing 5 tag plugin that inserts event listings into newsletters and adds nobody to any list. The plugin that actually adds Events Booking registrants to AcyMailing lists is Joomdonation's <strong>Events Booking - AcyMailing</strong> (<code>plg_eventbooking_acym</code>), so a site could be told "enabled" while the real sync was off, or the other way round. The line now reports <code>plg_eventbooking_acym</code>, and a new <code>bridge</code> block shows its default lists, whether the checked list is one of them, and whether registrants must opt in to the newsletter first. If the old tag plugin is also installed, the report says what it is.</li>
+<li>✨ <strong>Reports events that feed no list.</strong> The sync plugin takes its lists from each event's own setting and only falls back to the plugin's Default Lists when the event has none. With no default set, a new event that nobody configured adds its registrants to no list, and nothing says so. The new <code>event_list_settings</code> block counts the published events in scope that feed the checked list, feed only other lists, or feed <strong>no list</strong>, with upcoming events listed first, and <code>findings</code> calls out the gaps. Still read-only.</li>
+</ul>
 <h2>🚀 Version 1.0.0 (October 19, 2026)</h2>
 <p>First release. 33 tools for <strong>AcyMailing</strong> (<code>com_acym</code>) by Acyba, covering
 everything AcyMailing <strong>Starter</strong> can do, on every edition. Built from the
