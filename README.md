@@ -1,6 +1,6 @@
 # cs-mcp-for-j-addons-free
 
-Free MCP add-on plugins for [cs-mcp-for-j](https://github.com/cybersalt/cs-mcp-for-j) — the Joomla extension that turns a Joomla site into its own MCP server.
+Free MCP add-on plugins for [cs-mcp-for-j](https://github.com/cybersalt/cs-mcp-for-j) — the Joomla extension that turns a Joomla site into its own MCP server. The core installs as **CS MCP for J** (its Joomla Extensions Directory listing name) and shows as **MCP for J** in the Components menu; it was called "MCP for Joomla" before core 2.9.3.
 
 Each plugin in this repo is a standalone Joomla system plugin that subscribes to cs-mcp-for-j's `onCsMcpRegisterTools` event and registers a set of MCP tools wrapping a specific third-party Joomla extension.
 
@@ -163,7 +163,7 @@ Other behaviour:
 
 ## Installing
 
-The easiest path is through the in-admin catalog provided by cs-mcp-for-j: **Components → MCP for Joomla → Browse MCP Add-ons** → click Install on any of these. Catalog metadata, version checks, and download URLs all flow through cs-release-manager on cybersalt.com.
+The easiest path is through the in-admin catalog provided by cs-mcp-for-j: **Components → MCP for J → Browse MCP Add-ons** → click Install on any of these. Catalog metadata, version checks, and download URLs all flow through cs-release-manager on cybersalt.com.
 
 For manual install or development testing, build a standalone zip from this repo (see Building below) and install via **System → Install → Extensions → Upload Package File**.
 

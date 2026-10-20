@@ -33,9 +33,9 @@ class PlgSystemCsmcpforjj2commerceInstallerScript implements InstallerScriptInte
 		// that way and explain. See coreInstalled().
 		if (!$this->coreInstalled()) {
 			Factory::getApplication()->enqueueMessage(
-				'MCP add-on for J2Commerce was installed but has been left DISABLED, because the MCP for '
-				. 'Joomla extension is not on this site. This add-on only adds tools to MCP for Joomla - on '
-				. 'its own it does nothing. Install MCP for Joomla first, then enable this plugin in System '
+				'MCP add-on for J2Commerce was installed but has been left DISABLED, because the CS MCP for '
+				. 'J extension is not on this site. This add-on only adds tools to MCP for J - on '
+				. 'its own it does nothing. Install CS MCP for J first, then enable this plugin in System '
 				. '-> Plugins. Nothing is broken and the site is unaffected.',
 				'warning'
 			);
