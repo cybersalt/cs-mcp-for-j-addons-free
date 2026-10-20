@@ -1,4 +1,10 @@
-# MCP for Joomla: DPCalendar add-on — Changelog
+# MCP for DPCalendar — Changelog
+
+## 🚀 Version 1.0.3 (October 20, 2026)
+
+- 🏷️ **Renamed to "System - MCP for DPCalendar"** in Extensions → Plugins (was "System - MCP for Joomla: DPCalendar add-on"). The new name follows the Joomla Extensions Directory's naming rules. Only the displayed name changes: the plugin's element, folder and update channel are the same, so updates keep working.
+- 📄 **Every PHP file now carries a GPL licence notice** (GNU General Public License version 2 or later).
+- No tool behaves differently.
 
 ## 🚀 Version 1.0.2 (October 19, 2026)
 

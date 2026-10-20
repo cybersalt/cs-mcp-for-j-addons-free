@@ -1,4 +1,9 @@
 <?php
+/**
+ * @package     MCP for AcyMailing
+ * @copyright   Copyright (C) 2026 Cybersalt Consulting Ltd.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
+ */
 
 declare(strict_types=1);
 
@@ -86,7 +91,7 @@ final class UpdateListTool extends AbstractTool
 		$msgs   = $this->acyDrainMessages();
 
 		if ((int) $saved !== $id) {
-			return ToolResult::error('ListClass::save() did not update list ' . $id . ' (returned ' . var_export($saved, true) . '): ' . implode('; ', array_merge($class->errors, $msgs)));
+			return ToolResult::error('ListClass::save() did not update list ' . $id . ' (returned ' . json_encode($saved) . '): ' . implode('; ', array_merge($class->errors, $msgs)));
 		}
 
 		$after   = $this->db->setQuery('SELECT * FROM ' . $table . ' WHERE id = ' . $id)->loadAssoc();

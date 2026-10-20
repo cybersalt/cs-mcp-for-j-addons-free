@@ -1,4 +1,11 @@
-# MCP for Joomla: VirtueMart add-on — Changelog
+# MCP for VirtueMart — Changelog
+
+## 🚀 Version 1.0.2 (October 20, 2026)
+
+- 🏷️ **Renamed to "System - MCP for VirtueMart"** in Extensions → Plugins (was "System - MCP for Joomla - VirtueMart"). The new name follows the Joomla Extensions Directory's naming rules. Only the displayed name changes: the plugin's element, folder and update channel are the same, so updates keep working.
+- 📄 **Every PHP file now carries a GPL licence notice** (GNU General Public License version 2 or later).
+- 🧹 **Removed the non-standard `<php_minimum>` element from the manifest.** Joomla never read it from there. The minimum PHP version is still published by the update server, which is where Joomla checks it.
+- No tool behaves differently.
 
 ## 🚀 Version 1.0.1 (October 9, 2026)
 

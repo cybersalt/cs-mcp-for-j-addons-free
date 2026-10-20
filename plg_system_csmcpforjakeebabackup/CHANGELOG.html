@@ -1,5 +1,11 @@
 <div class="changelog-container">
-<h1>📋 MCP for Joomla: Akeeba Backup add-on — Changelog</h1>
+<h1>📋 MCP for Akeeba Backup Core — Changelog</h1>
+<h2>🚀 Version 1.0.4 (October 20, 2026)</h2>
+<ul>
+<li>🏷️ <strong>Renamed to "System - MCP for Akeeba Backup Core"</strong> in Extensions → Plugins (was "System - MCP for Joomla: Akeeba Backup add-on"). The new name follows the Joomla Extensions Directory's naming rules. Only the displayed name changes: the plugin's element, folder and update channel are the same, so updates keep working.</li>
+<li>📄 <strong>Every PHP file now carries a GPL licence notice</strong> (GNU General Public License version 2 or later).</li>
+<li>No tool behaves differently.</li>
+</ul>
 <h2>🚀 Version 1.0.3 (October 19, 2026)</h2>
 <ul>
 <li>🐛 <strong><code>start_akeeba_backup</code> uses the profile's own settings.</strong> On a site whose backup profile is encrypted (Akeeba's default once its Control Panel has been opened), the add-on could not read the encryption key, so the backup started on Akeeba's <em>default</em> settings (default output folder, default filters) and the first <code>step_akeeba_backup</code> then failed with "Akeeba Engine detected a problem while saving temporary data". The key is now loaded the way Akeeba's own admin screens load it, the profile's configuration is loaded before the backup starts, and an encrypted profile that cannot be decrypted is refused instead of silently backed up on defaults.</li>

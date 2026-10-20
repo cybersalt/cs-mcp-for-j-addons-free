@@ -1,5 +1,11 @@
 <div class="changelog-container">
-<h1>📋 MCP for Joomla: DPCalendar add-on — Changelog</h1>
+<h1>📋 MCP for DPCalendar — Changelog</h1>
+<h2>🚀 Version 1.0.3 (October 20, 2026)</h2>
+<ul>
+<li>🏷️ <strong>Renamed to "System - MCP for DPCalendar"</strong> in Extensions → Plugins (was "System - MCP for Joomla: DPCalendar add-on"). The new name follows the Joomla Extensions Directory's naming rules. Only the displayed name changes: the plugin's element, folder and update channel are the same, so updates keep working.</li>
+<li>📄 <strong>Every PHP file now carries a GPL licence notice</strong> (GNU General Public License version 2 or later).</li>
+<li>No tool behaves differently.</li>
+</ul>
 <h2>🚀 Version 1.0.2 (October 19, 2026)</h2>
 <ul>
 <li>🐛 <strong><code>list_dpcalendar_coupons</code> works on MySQL and MariaDB.</strong> It selected the coupon's <code>limit</code> column without quoting it, and <code>limit</code> is a reserved word, so every call failed with an SQL syntax error. All plain column lists in the add-on are now quoted.</li>

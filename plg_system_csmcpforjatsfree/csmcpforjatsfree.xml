@@ -7,10 +7,9 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>support@cybersalt.com</authorEmail>
 	<authorUrl>https://cybersalt.com</authorUrl>
-	<version>1.0.1</version>
+	<version>1.0.2</version>
 	<!-- 8.2, not 8.1: this plugin declares constants inside traits (ATSBootTrait),
 	     which is PHP 8.2+ and a parse-time fatal on 8.1. -->
-	<php_minimum>8.2</php_minimum>
 	<description>PLG_SYSTEM_CSMCPFORJATSFREE_XML_DESCRIPTION</description>
 
 	<namespace path="src">Cybersalt\Plugin\System\Csmcpforjatsfree</namespace>

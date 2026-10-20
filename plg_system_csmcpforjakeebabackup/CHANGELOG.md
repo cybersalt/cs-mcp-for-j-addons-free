@@ -1,4 +1,10 @@
-# MCP for Joomla: Akeeba Backup add-on — Changelog
+# MCP for Akeeba Backup Core — Changelog
+
+## 🚀 Version 1.0.4 (October 20, 2026)
+
+- 🏷️ **Renamed to "System - MCP for Akeeba Backup Core"** in Extensions → Plugins (was "System - MCP for Joomla: Akeeba Backup add-on"). The new name follows the Joomla Extensions Directory's naming rules. Only the displayed name changes: the plugin's element, folder and update channel are the same, so updates keep working.
+- 📄 **Every PHP file now carries a GPL licence notice** (GNU General Public License version 2 or later).
+- No tool behaves differently.
 
 ## 🚀 Version 1.0.3 (October 19, 2026)
 

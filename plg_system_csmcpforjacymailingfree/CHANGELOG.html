@@ -1,7 +1,15 @@
 <div class="changelog-container">
-<h1>📋 MCP for Joomla: AcyMailing (Starter) add-on — Changelog</h1>
+<h1>📋 MCP for AcyMailing — Changelog</h1>
 <p><code>plg_system_csmcpforjacymailingfree</code>. Versions are independent of every other
 add-on in this repo and of cs-mcp-for-j core.</p>
+<h2>🚀 Version 1.0.2 (October 20, 2026)</h2>
+<ul>
+<li>🏷️ <strong>Renamed to "System - MCP for AcyMailing"</strong> in Extensions → Plugins (was "System - MCP for Joomla: AcyMailing (Starter) add-on"). The new name follows the Joomla Extensions Directory's naming rules. Only the displayed name changes: the plugin's element, folder and update channel are the same, so updates keep working.</li>
+<li>📄 <strong>Every PHP file now carries a GPL licence notice</strong> (GNU General Public License version 2 or later).</li>
+<li>🧹 <strong>Removed the non-standard <code>&lt;php_minimum&gt;</code> element from the manifest.</strong> Joomla never read it from there. The minimum PHP version is still published by the update server, which is where Joomla checks it.</li>
+<li>🧹 <code>update_acym_list</code> reports a failed save's return value with <code>json_encode()</code> instead of <code>var_export()</code>, which the JED Checker flags as debug output. The message reads the same.</li>
+<li>No tool behaves differently.</li>
+</ul>
 <h2>🚀 Version 1.0.1 (October 20, 2026)</h2>
 <ul>
 <li>🐛 <strong><code>check_acym_eventbooking_sync</code> now checks the right plugin.</strong> Its <code>bridge_plugin</code> line looked at <code>plg_acymailing_eventbooking</code>, which is an old AcyMailing 5 tag plugin that inserts event listings into newsletters and adds nobody to any list. The plugin that actually adds Events Booking registrants to AcyMailing lists is Joomdonation's <strong>Events Booking - AcyMailing</strong> (<code>plg_eventbooking_acym</code>), so a site could be told "enabled" while the real sync was off, or the other way round. The line now reports <code>plg_eventbooking_acym</code>, and a new <code>bridge</code> block shows its default lists, whether the checked list is one of them, and whether registrants must opt in to the newsletter first. If the old tag plugin is also installed, the report says what it is.</li>

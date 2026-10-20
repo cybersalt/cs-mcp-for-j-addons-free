@@ -1,5 +1,12 @@
 <div class="changelog-container">
-<h1>📋 MCP for Joomla: Akeeba Ticket System add-on — Changelog</h1>
+<h1>📋 MCP for Akeeba Ticket System — Changelog</h1>
+<h2>🚀 Version 1.0.2 (October 20, 2026)</h2>
+<ul>
+<li>🏷️ <strong>Renamed to "System - MCP for Akeeba Ticket System"</strong> in Extensions → Plugins (was "System - MCP for Joomla: Akeeba Ticket System add-on"). The new name follows the Joomla Extensions Directory's naming rules. Only the displayed name changes: the plugin's element, folder and update channel are the same, so updates keep working.</li>
+<li>📄 <strong>Every PHP file now carries a GPL licence notice</strong> (GNU General Public License version 2 or later).</li>
+<li>🧹 <strong>Removed the non-standard <code>&lt;php_minimum&gt;</code> element from the manifest.</strong> Joomla never read it from there. The minimum PHP version is still published by the update server, which is where Joomla checks it.</li>
+<li>No tool behaves differently.</li>
+</ul>
 <h2>🚀 Version 1.0.1 (October 9, 2026)</h2>
 <ul>
 <li>🔧 <strong>Clears Joomla's caches after install</strong> (the PSR-4 autoload map, opcache and Joomla's cache groups). A plugin installed after the autoload map was written is not in it, which could produce an HTTP 500 shortly after installing.</li>

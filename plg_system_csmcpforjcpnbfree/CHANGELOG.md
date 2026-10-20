@@ -1,4 +1,11 @@
-# MCP for Joomla: Cookies Policy Notification Bar add-on — Changelog
+# MCP for Cookies Policy Notification Bar — Changelog
+
+## 🚀 Version 1.0.1 (October 20, 2026)
+
+- 🏷️ **Renamed to "System - MCP for Cookies Policy Notification Bar"** in Extensions → Plugins (was "System - MCP for Joomla: Cookies Policy Notification Bar add-on"). The new name follows the Joomla Extensions Directory's naming rules. Only the displayed name changes: the plugin's element, folder and update channel are the same, so updates keep working.
+- 📄 **Every PHP file now carries a GPL licence notice** (GNU General Public License version 2 or later).
+- 🧹 **Removed the non-standard `<php_minimum>` element from the manifest.** Joomla never read it from there. The minimum PHP version is still published by the update server, which is where Joomla checks it.
+- No tool behaves differently.
 
 ## 🚀 Version 1.0.0 (October 19, 2026)
 

@@ -1,5 +1,11 @@
 <div class="changelog-container">
-<h1>📋 MCP for Joomla: Cybersalt Release Manager add-on — Changelog</h1>
+<h1>📋 MCP for Cybersalt Release Manager — Changelog</h1>
+<h2>🚀 Version 1.11.3 (October 20, 2026)</h2>
+<ul>
+<li>🏷️ <strong>Renamed to "System - MCP for Cybersalt Release Manager"</strong> in Extensions → Plugins (was "System - MCP for Joomla - Cybersalt Release Manager add-on"). The new name follows the Joomla Extensions Directory's naming rules. Only the displayed name changes: the plugin's element, folder and update channel are the same, so updates keep working.</li>
+<li>📄 <strong>Every PHP file now carries a GPL licence notice</strong> (GNU General Public License version 2 or later).</li>
+<li>No tool behaves differently.</li>
+</ul>
 <h2>🚀 Version 1.11.2 (October 19, 2026)</h2>
 <ul>
 <li>🐛 <strong><code>create_release_manager_package_version</code> now really computes <code>sha256</code> when you leave it out</strong>, as its description always said. It used to store an empty checksum, because Release Manager only hashes files on its own upload screen, so the update feed served that version without a <code>&lt;sha256&gt;</code>. The tool now hashes the zip in the package's downloads folder, and refuses (creating nothing) if the file is not there yet.</li>
