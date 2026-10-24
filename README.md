@@ -21,6 +21,10 @@ Each plugin in this repo is a standalone Joomla system plugin that subscribes to
 | `plg_system_csmcpforjflexbanners` | [FlexBanners](https://extensions.joomla.org/extension/flexbanner/) by Inch Hosting | 26 tools: banners (list, get, create, update, state, reset counters, delete), locations (ad groups), `mod_flexbanners` modules including **`create_flexbanners_location_module`, which makes a new location plus a cloned module in one call (the "add another row of ads" job)**, click-through links, clients, size presets, impression and click statistics, and a health check that names every banner that is not showing and why. Built against 5.1.10, checked against 6.0.05. See below. |
 | `plg_system_csmcpforjmaximenuckfree` | [Maximenu CK](https://www.joomlack.fr/en/joomla-extensions/maximenu-ck) by Cédric Keiflin | 11 tools: modules, styles and their custom CSS (written to the style row the menu actually renders, with the editor's second copy kept in step), the compiled-CSS cache, each menu's mega-menu column layout worked out the way the renderer does, and a panel-overflow check. Works with **Light and Pro**. Writing per-item mega-menu settings is Pro-only and ships in the Pro repo. See below. |
 | `plg_system_csmcpforjj2commerce` | [J2Commerce 6](https://www.j2commerce.com) by J2Commerce, LLC | 43 tools across 10 categories: products (the article-backed product row and its variants: list, assembled get, create-from-article, targeted product and variant updates, delete through the vendor's own cascade), tier/group/date prices, stock through J2Commerce's atomic stock writers, orders (list, full get, statuses, status change through the vendor's own `updateOrderStatus` with a side-effect dry run, private or customer-visible notes, tracking), customers assembled from addresses **and** orders, coupons with derived usage, gift vouchers with vendor-derived balances and masked codes, store lookups (currencies, countries/zones, geozones, manufacturers, options, shipping, payment methods with credentials withheld), sales and best-seller reports, and diagnostics including a tax-chain audit for silent zero tax. J2Commerce 6 only, not J2Store 4. See below. |
+| `plg_system_csmcpforjjdownloads` | [jDownloads](https://www.jdownloads.com) by Arno Betz | 17 tools: categories (list, get, create, update, with rename and move carrying each category's folder on disk), downloads (list, get, create, update, publish/unpublish, delete) with their file metadata and download counts, attaching a file from the jDownloads upload folder, read-only licences, user-group limits and effective permissions, a health check that compares the database with the disk, and a redacted table reader. Built against 4.1.7 (J4/J5/J6). See below. |
+| `plg_system_csmcpforjgantry5` | [Gantry 5](https://github.com/gantry/gantry5) by Tiger12 | 21 tools: themes, outlines (list, full inheritance chain, duplicate as a copy or inheriting), which pages use which outline and assigning them, layouts with inheritance resolved, particle settings per outline (single instances and particle-type defaults), module positions and module instances per outline with the Joomla modules each renders, Styles, Gantry 5 Particle modules, backups with restore, cache clearing and a health check including Joomla 6 support. Every value says whether it comes from the outline, the Base Outline, the theme or the blueprint; every change is checked against the blueprint and backed up first. See below. |
+| `plg_system_csmcpforjjcomments` | [JComments](https://github.com/exstreme/Jcomments-4) (exstreme) | 15 tools: list comments newest first (by state, article, author, IP, date, text or parent), one comment with its whole thread, reports, author history and a spam assessment, **approve or unpublish in bulk, reply as your own account with JComments' own threading**, delete the way JComments does (whole sub-thread, or "mark deleted", with a dry run), a spam scan that **explains every flag**, unpublish/delete/IP-ban spam in one call, a health check, settings with the real permission matrix, and read-only subscriptions, blacklist, reports, mail queue and a redacted table reader. **Nothing emails anyone unless `notify: true`.** See below. |
+| `plg_system_csmcpforjpageprotector` | [Cybersalt Page Protector](https://www.cybersalt.com/extensions/page-protector) | 15 tools: the dashboard's health checks (including whether the captcha can actually run), every option with menu items, modules and user groups resolved to titles, validated settings changes saved through Joomla's own Options save, protected pages and modules added or removed one at a time, a CIDR-aware IP allow-list, resetting every visitor's pass, and the event log with 24-hour stats, most-challenged IPs, filters and deletes. Needs Page Protector 0.2.0+. See below. |
 
 ### A note on the Akeeba Ticket System add-on
 
@@ -154,6 +158,69 @@ Other behaviour:
 **The compiled CSS file has no cache-buster.** Maximenu links `maximenuck_<id>.css` with no version query, so a CDN keeps serving the old file. With "Load compiled CSS = Yes", the file isn't rebuilt at all until it's deleted. Every CSS write and `clear_maximenuck_compiled_css` return the exact URL to purge.
 
 **Column arithmetic:** the panel width is the sum of every column's width across all rows. The first child must be marked as a column start, or column 1 is unsized and the last columns drop underneath. `check_maximenuck_panel_overflow` works the panel width out the way the renderer does.
+
+### A note on the jDownloads add-on
+
+**Every category is also a folder.** jDownloads keeps its own nested set of categories, not Joomla's, and gives each one a folder under its upload folder; a download's file lives in its category's folder. Renaming or moving a category is therefore a disk operation as well. The tools check the disk before writing anything (old folder present, new name free, not into its own branch), move the folder with a single rename so everything below it moves intact, and then check the database against the disk. jDownloads' own move routine does not do that reliably beyond one level.
+
+**jDownloads' admin save can't be driven from outside its form.** Run that way, its download save blanks the author and URL fields, deletes every screenshot and resets the download's permissions. So downloads are written through jDownloads' own table class, field by field, with tags re-supplied. Tags, custom field values, permission rules and the download counter were checked after live partial edits. New categories go through jDownloads' own category model.
+
+**There is no trash.** jDownloads' delete is final and removes the file as well. `delete_jdownloads_download` wants the download unpublished first and `confirm: true`, and keeps the file unless you pass `delete_file`.
+
+**Files come only from inside the upload folder.** `attach_jdownloads_file` takes a file from the top of the jDownloads upload folder (where its Files manager and FTP uploads put them), or an unclaimed file already in the download's own category folder. Nothing else: no `..`, no symbolic links, no type jDownloads' upload settings block, and never a server-executable type. It records the file name, size, MD5 and SHA-1.
+
+Other behaviour:
+
+- **Publishing a category applies to its whole branch**, and jDownloads won't publish one whose folder is missing or whose parent is unpublished.
+- **By default the upload folder is inside the web root with no protection**, so any file can be fetched by URL, bypassing access levels and the counter, until "anti-leech" is turned on. `check_jdownloads_health` warns about this.
+- **The counter goes up even when the file is missing.** The visitor is sent back to the home page and the download is still counted.
+- **Nothing sends email.** jDownloads' own notifications fire on front-end downloads and uploads, never on these tools.
+
+### A note on the Gantry 5 add-on
+
+**It reads Gantry's YAML itself instead of booting Gantry.** An outline is a Joomla template style, and its layout, styles and particle settings are YAML files under `templates/<theme>/custom/config/<outline>/`. Gantry's own layout reader saves files when its index is out of date, needs the site application and handles one theme per request. So these tools read the files with Joomla's symfony/yaml and look values up in the same order Gantry does. Reads never write.
+
+**Every value says where it comes from.** A setting comes from the outline, the Base Outline, the theme's shipped config or the blueprint default, key by key. Layout sections and particles can also inherit from any other outline. `get_gantry5_particle`, `get_gantry5_particle_defaults` and `get_gantry5_styles` name the source of each value. Write tools refuse an inherited item, name the outline to edit instead, and list every other outline a change reaches.
+
+**Writes change one key in one file.** Only files under `custom/config/` are written, never the theme's own defaults. Keys and values are checked against the particle or style blueprint, the old file is backed up (`restore_gantry5_backup` puts it back), the YAML is written the way Gantry writes it, and the result is read back before it replaces the original. Gantry's own Styles save writes inherited values into the outline; these tools don't. A styles change deletes the outline's compiled CSS, because in Gantry's production mode nothing else makes it recompile.
+
+**Gantry's admin can wipe an outline.** For a template style without a `configuration` param, Gantry's outline list copies the preset's folder over the outline's own, and Gantry's installer creates every style that way. The write tools set the param first, and `check_gantry5_health` flags any style still missing it.
+
+**Joomla 6 needs Gantry 5.6.2 or later.** 5.6.0 and 5.6.1 are Joomla 5 only. Gantry 5.6.4 with Helium runs on Joomla 6.2 without the Backward Compatibility plugin.
+
+Other behaviour:
+
+- **"Module settings per outline" are layout items.** A Module Position renders a Joomla position (key, chrome) and a Module Instance renders one module (module_id). `list_gantry5_outline_modules` also lists positions that hold published modules but that the layout never renders.
+- **Deleting a template style that others inherit from** makes them fall back to a preset, and Gantry creates a folder for the deleted outline on the next page view. The health check reports both.
+- **Twig in Custom HTML particles runs on the server**, so only a Super User can enable it or edit such content through these tools.
+- **Gantry's config YAML is readable over the web.** Keep secrets out of particle settings.
+
+### A note on the JComments add-on
+
+**This is JComments (`com_jcomments`), not "JComment".** The exstreme/Jcomments-4 line is the classic joomlatune component, free, for Joomla 4 to 6. "JComment" (`com_jcomment`) by Joomla! Extensions Store is a separate product with its own tables; the tools name it and refuse when that is what they find. Built against 5.0.6, diffed against 5.0.5.
+
+**JComments' own Publish button emails people; these tools don't unless asked.** Its admin publish pushes a "new comment" mail to every subscriber of the article, and that mail ignores the "enable notification" option, which only covers moderator mail. Approving, replying, unpublishing, deleting and banning here send nothing and fire no JComments plugin event. `notify: true` runs JComments' own code for that action. It was verified on the mail queue's counter, not its row count, because JComments deletes a row the moment it is sent.
+
+**Replies are threaded by JComments itself.** `create_jcomments_reply` posts as the token's own account through JComments' comment table, which fills `parent`, `thread_id`, `path` and `level` from the comment being answered. It refuses rather than truncates a thread too deep for those columns. Like the front-end form, it refuses an identical reply, so a retry cannot post twice. There is no stored comment count to fix up: JComments counts live.
+
+**Spam flags explain themselves.** Each flag names the rule that fired and why: links and their domains, known spam phrases, the site's own censor list, a domain in the author name, disposable email, repeated or shouted text, the same text elsewhere, a burst from one IP, blacklist hits, new authors, reader reports. Scores sort; they decide nothing. No rule looks at the language or script, so Cyrillic sites aren't penalised. JComments has no spam state, so "marking" means unpublishing or deleting, with an optional IP ban on its own blacklist.
+
+Other behaviour:
+
+- **A fresh install shows comments nowhere.** No category is enabled, so only articles containing `{jcomments on}` get comments, and the default flat view has no Reply button. `check_jcomments_health` says so.
+- **Some permissions are inverted.** Allowing `comment.captcha`, `comment.flood`, `comment.length_check` or `comment.terms_of_use` *exempts* a group from the check. `get_jcomments_settings` reports them as `skips_*`.
+- **IP bans don't stop logged-in users**, who are checked by user id only, and a ban's expiry date is never read.
+- **On Joomla 6 without "Behaviour - Backward Compatibility 6", JComments' admin Blacklist form dies** on save. Banning through `mark_jcomments_spam` is unaffected.
+
+### A note on the Page Protector add-on
+
+**Settings are saved through Joomla's own Options save.** Page Protector does its after-save work in `onExtensionAfterSave` for `com_config.component`. It shortens the IPs already in the log when "Shorten IP addresses" is on, and cleans the page and module caches, so a copy cached before a module was protected stops being served. So every settings tool gives com_config's model the full set of stored options with the change applied, never a partial set, and reads the database again afterwards. Unknown options are refused, and menu items, modules, positions and user groups must exist. Switching to "every page except" needs `confirm_all_pages`.
+
+**The IP allow-list fails silently in two ways, and the tools catch both.** Page Protector ignores an entry it can't parse, so `203.0.113.300` in the box exempts nobody. It also splits the list on commas before it strips `#` comments, so commenting out `# 198.51.100.7, 198.51.100.0/24` leaves the /24 exempt. `get_page_protector_settings` flags both, and the add and remove tools refuse them. Both tools also understand CIDR ranges. An address already inside an allow-listed range is skipped, and removing an address that a wider range still covers reports that it is still exempt.
+
+**Logged IPs are not visitor IPs by default.** IP shortening is on out of the box, so the log holds /24 (IPv4) or /48 (IPv6) networks. Every log tool says so and gives the range to block at a firewall, the same value the admin's copy button gives. Page Protector itself blocks nobody, and deleting log rows unblocks nothing.
+
+The tools call Page Protector's own helpers and its Dashboard and Logs models rather than copying their logic. They also use its own permissions: view for reads, write for log deletes, Options for settings, admin for resetting passes. Tool names use the `page_protector` token: `php tests/verify-addon.php plg_system_csmcpforjpageprotector page_protector`.
 
 ## Requirements
 
