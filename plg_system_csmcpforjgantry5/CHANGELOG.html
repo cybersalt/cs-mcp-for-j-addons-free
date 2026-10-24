@@ -1,0 +1,35 @@
+<div class="changelog-container">
+<h1>📋 MCP for Gantry 5 — Changelog</h1>
+<h2>🚀 Version 1.0.0 (October 24, 2026)</h2>
+<p>First release. 21 tools for the <strong>Gantry 5</strong> template framework (<code>pkg_gantry5</code>) by Tiger12. Studied against <strong>Gantry 5.6.4</strong> with the <strong>Helium 5.6.4</strong> theme and driven end-to-end on Joomla 6.2.0 / PHP 8.3, including particle, module position, style and particle-module changes showing up on a rendered page.</p>
+<h3>✨ New</h3>
+<ul>
+<li><strong>Diagnostics</strong> — <code>check_gantry5_health</code>, <code>clear_gantry5_cache</code>.</li>
+<li><strong>Themes and outlines</strong> — <code>list_gantry5_themes</code>, <code>list_gantry5_outlines</code>, <code>get_gantry5_outline</code> (with the full inheritance chain), <code>list_gantry5_assignments</code> (which pages use which outline), <code>set_gantry5_outline_assignments</code>, <code>create_gantry5_outline</code> (duplicate an outline as a copy or inheriting from its source).</li>
+<li><strong>Layouts</strong> — <code>get_gantry5_layout</code>, <code>list_gantry5_outline_modules</code> (module positions and module instances per outline, the Joomla modules each renders, and positions the layout never renders).</li>
+<li><strong>Particles</strong> — <code>list_gantry5_particle_types</code>, <code>get_gantry5_particle</code>, <code>update_gantry5_particle</code>, <code>get_gantry5_particle_defaults</code>, <code>update_gantry5_particle_defaults</code>.</li>
+<li><strong>Styles</strong> — <code>get_gantry5_styles</code>, <code>update_gantry5_styles</code>.</li>
+<li><strong>Gantry 5 Particle modules</strong> — <code>list_gantry5_particle_modules</code>, <code>update_gantry5_particle_module</code>.</li>
+<li><strong>Backups</strong> — <code>list_gantry5_backups</code>, <code>restore_gantry5_backup</code>.</li>
+</ul>
+<h3>🏗 Architecture</h3>
+<ul>
+<li><strong>Every value says where it comes from</strong>: this outline, an instance inherited from another outline, the Base Outline, the theme's shipped config, or the blueprint default, resolved in the same order Gantry uses.</li>
+<li><strong>Reads never write.</strong> Gantry's own layout reader saves files when its index is out of date, so these tools read Gantry's YAML themselves instead of booting Gantry.</li>
+<li><strong>Writes change one file, key by key</strong>, only under <code>templates/&lt;theme&gt;/custom/config/</code>, after a backup (<code>restore_gantry5_backup</code> undoes them). Keys and values are checked against the particle or style blueprint, the YAML is written the way Gantry writes it and read back before it replaces the original, and Gantry's cache is cleared the way its own Clear Cache button does it. A styles change also deletes the outline's compiled CSS so the next page view rebuilds it.</li>
+<li><strong>Inherited items are refused, not silently copied</strong>: the error names the outline to edit instead, and every write lists the other outlines it also reaches.</li>
+<li><strong>Free</strong>, because Gantry 5 is free.</li>
+</ul>
+<h3>📝 Gantry behaviour worth knowing</h3>
+<ul>
+<li><strong>Joomla 6 needs Gantry 5.6.2 or later</strong>; 5.6.0 and 5.6.1 are Joomla 5 only. Gantry 5.6.4 with Helium 5.6.4 runs on Joomla 6.2 without the Backward Compatibility plugin. <code>check_gantry5_health</code> checks the combination.</li>
+<li><strong>Gantry's admin can overwrite an outline.</strong> For a template style without a <code>configuration</code> param, Gantry's outline list copies the preset's folder over the outline's own; Gantry's installer creates every style that way. The write tools set the param first, and the health check warns about any style still missing it.</li>
+<li><strong>Deleting a template style that other outlines inherit from</strong> makes them fall back to a preset, and Gantry creates a folder for the deleted outline on the next page view. The health check reports both.</li>
+<li>A Custom HTML particle with "Process Twig" on runs its content as server-side Twig; only a Super User can turn it on or change such content through these tools.</li>
+<li>Gantry's configuration YAML is readable over the web; keep secrets out of particle settings.</li>
+</ul>
+<h3>📦 Build</h3>
+<ul>
+<li>Requires PHP 8.2+ and CS MCP for J. Installs disabled, with an explanation, when CS MCP for J is not present, and clears Joomla's caches after install.</li>
+</ul>
+</div>
