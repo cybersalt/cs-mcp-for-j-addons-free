@@ -1,0 +1,32 @@
+<div class="changelog-container">
+<h1>📋 MCP for Page Protector — Changelog</h1>
+<h2>🚀 Version 1.0.0 (October 24, 2026)</h2>
+<p>First release. 15 tools for <strong>Cybersalt Page Protector</strong> (<code>com_cspageprotector</code> + <code>plg_system_cspageprotector</code>). Built against <strong>Page Protector 0.2.1</strong> and needs <strong>0.2.0 or later</strong>. Driven end-to-end on Joomla 6.2.0 / PHP 8.3, including the challenge page appearing and disappearing on the front end, an allow-listed IP getting through, a solved proof-of-work pass being accepted and then rejected after a pass reset, and protected modules showing their placeholder.</p>
+<h3>✨ New</h3>
+<ul>
+<li><strong>Status</strong> — <code>get_page_protector_status</code>: the dashboard's own health checks (gatekeeper plugin, whether the captcha can run and what that means for visitors right now, what is protected, Cloudflare, logging, page cache), plus versions, protection mode, exemptions and logging settings.</li>
+<li><strong>Settings</strong> — <code>get_page_protector_settings</code> (every option, with menu items, modules, positions and user groups resolved to titles, and the IP lists parsed the way Page Protector reads them) and <code>set_page_protector_settings</code> (validated partial update; <code>null</code> puts an option back to its default; <code>dry_run</code>).</li>
+<li><strong>Protected pages and modules</strong> — <code>add_page_protector_menu_items</code>, <code>remove_page_protector_menu_items</code>, <code>add_page_protector_modules</code>, <code>remove_page_protector_modules</code> (by id and/or by position).</li>
+<li><strong>IP allow-list</strong> — <code>add_page_protector_exempt_ips</code>, <code>remove_page_protector_exempt_ips</code> (IPv4/IPv6, CIDR-aware).</li>
+<li><strong>Passes</strong> — <code>reset_page_protector_passes</code> (the dashboard's "Reset all passes").</li>
+<li><strong>Event log</strong> — <code>get_page_protector_stats</code>, <code>list_page_protector_events</code> (the Event Log's filters), <code>get_page_protector_top_ips</code> (with a "likely scraper" flag), <code>delete_page_protector_events</code>, <code>clear_page_protector_log</code>.</li>
+</ul>
+<h3>🏗 Architecture</h3>
+<ul>
+<li><strong>Page Protector's own code does the work.</strong> The tools call its helpers and its Dashboard and Logs models, so what MCP reports is what the dashboard and the gatekeeper plugin decide.</li>
+<li><strong>Settings are saved the way Options → Save saves them</strong>, through Joomla's com_config model with the full set of stored options. That runs Page Protector's after-save work: shortening the IPs already in the log when IP shortening is on, and cleaning the page and module caches. A save never drops a stored option.</li>
+<li><strong>Validated before saving:</strong> menu items, modules, positions and user groups must exist, IP lists must parse, values must fit the Options form, unknown options are refused. Switching to "every page except" needs an explicit confirmation.</li>
+<li><strong>Page Protector's own permissions:</strong> view for reads, write for log deletes, Options for settings, admin for resetting passes.</li>
+<li><strong>Logged IPs are shown as the admin shows them</strong>, with a note that they are network addresses while IP shortening is on, and the range to block at a firewall.</li>
+<li><strong>Free</strong>, because Page Protector is free.</li>
+</ul>
+<h3>📝 Page Protector behaviour worth knowing</h3>
+<ul>
+<li>An allow-list entry Page Protector can't parse (<code>203.0.113.300</code>, <code>/33</code>) is ignored without a word. The tools refuse to write one and flag any already stored.</li>
+<li>The allow-list is split on commas before <code>#</code> comments are removed, so commenting out a line such as <code># 198.51.100.7, 198.51.100.0/24</code> leaves the second entry active. The tools flag it and refuse a comment that contains a comma.</li>
+</ul>
+<h3>📦 Build</h3>
+<ul>
+<li>Requires PHP 8.2+ and CS MCP for J. Installs disabled, with an explanation, when CS MCP for J is not present, and clears Joomla's caches after install.</li>
+</ul>
+</div>
