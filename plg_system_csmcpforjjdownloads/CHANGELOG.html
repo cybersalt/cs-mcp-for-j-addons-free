@@ -1,0 +1,36 @@
+<div class="changelog-container">
+<h1>📋 MCP for jDownloads — Changelog</h1>
+<h2>🚀 Version 1.0.0 (October 24, 2026)</h2>
+<p>First release. 17 tools for <strong>jDownloads</strong> (<code>com_jdownloads</code>) by Arno Betz. Studied against <strong>jDownloads 4.1.7 Stable</strong>, the current release for Joomla 4, 5 and 6. Driven end-to-end on Joomla 6.2.0 / PHP 8.3, including files downloaded from the front end and the download counter checked afterwards.</p>
+<h3>✨ New</h3>
+<ul>
+<li><strong>Diagnostics</strong> — <code>check_jdownloads_health</code> (database against disk), <code>query_jdownloads_table</code>.</li>
+<li><strong>Categories</strong> — <code>list_jdownloads_categories</code>, <code>get_jdownloads_category</code>, <code>create_jdownloads_category</code>, <code>update_jdownloads_category</code> (rename and move included, folder and all).</li>
+<li><strong>Downloads</strong> — <code>list_jdownloads_downloads</code>, <code>get_jdownloads_download</code>, <code>create_jdownloads_download</code>, <code>update_jdownloads_download</code>, <code>set_jdownloads_download_state</code>, <code>delete_jdownloads_download</code>.</li>
+<li><strong>Files</strong> — <code>attach_jdownloads_file</code>, <code>list_jdownloads_unassigned_files</code>.</li>
+<li><strong>Read-only lookups</strong> — <code>list_jdownloads_licenses</code>, <code>list_jdownloads_groups</code> (user-group download and upload limits), <code>list_jdownloads_permissions</code> (effective permissions per user group).</li>
+</ul>
+<h3>🏗 Architecture</h3>
+<ul>
+<li><strong>Every category is also a folder on disk.</strong> Creating, renaming and moving a category checks the disk before anything is written and verifies the database against the disk afterwards. A move is one rename of the folder, so everything below it moves intact.</li>
+<li><strong>New categories go through jDownloads' own category model.</strong> Edits use its category table for the nested set and permissions, because its save routine works out the old folder from hidden form fields.</li>
+<li><strong>Downloads are written through jDownloads' own table, field by field.</strong> Its admin save cannot be used from outside its form: there it blanks the author and URL fields, deletes the screenshots and resets permissions.</li>
+<li><strong>Partial updates keep everything you did not send:</strong> tags, custom field values, permission rules, the download counter, checksums and screenshots. Tags, custom field values, permission rules and the counter were checked in the database after live edits.</li>
+<li><strong>Files are attached only from inside the jDownloads upload folder.</strong> No other path, no <code>..</code>, no symbolic links, no file type jDownloads' upload settings block, and never a server-executable type.</li>
+<li><strong>Nothing sends email.</strong> jDownloads' own notifications fire on front-end downloads and uploads, never on these tools.</li>
+<li><strong>Free</strong>, because jDownloads is free.</li>
+</ul>
+<h3>📝 jDownloads behaviour worth knowing</h3>
+<ul>
+<li><strong>jDownloads has no trash.</strong> Its delete is final and removes the file too. <code>delete_jdownloads_download</code> wants the download unpublished first and keeps the file unless you ask.</li>
+<li><strong>Publishing or unpublishing a category applies to the whole branch below it</strong>, and jDownloads will not publish a category whose folder is missing or whose parent is unpublished.</li>
+<li><strong>A new subcategory always gets its parent's access level</strong>, and a new download with Public access gets its category's access level, as in the jDownloads admin.</li>
+<li><strong>The default upload folder is inside the web root with no protection.</strong> Anyone can fetch a file by its URL, past access levels and the counter, until "anti-leech" is switched on. <code>check_jdownloads_health</code> warns about it.</li>
+<li><strong>The counter goes up even when the file is missing.</strong> The visitor is sent back to the home page and the download is still counted.</li>
+<li>From reading jDownloads' code: its admin "move category to another parent" does not copy folders two levels down before deleting the old folder, and then unpublishes the moved category. These tools do not use that routine.</li>
+</ul>
+<h3>📦 Build</h3>
+<ul>
+<li>Requires PHP 8.2+ and MCP for J. Installs disabled, with an explanation, when MCP for J is not present, and clears Joomla's caches after install.</li>
+</ul>
+</div>
