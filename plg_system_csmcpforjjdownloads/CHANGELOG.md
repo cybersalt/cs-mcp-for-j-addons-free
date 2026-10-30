@@ -1,6 +1,6 @@
 # MCP for jDownloads — Changelog
 
-## 🚀 Version 1.0.0 (October 24, 2026)
+## 🚀 Version 1.0.0 (October 29, 2026)
 
 First release. 17 tools for **jDownloads** (`com_jdownloads`) by Arno Betz. Studied against
 **jDownloads 4.1.7 Stable**, the current release for Joomla 4, 5 and 6. Driven end-to-end on Joomla 6.2.0 /

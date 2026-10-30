@@ -1,6 +1,6 @@
 # MCP for JComments — Changelog
 
-## 🚀 Version 1.0.0 (October 24, 2026)
+## 🚀 Version 1.0.0 (October 29, 2026)
 
 First release. 15 tools for **JComments** (`com_jcomments`, the exstreme/Jcomments-4 line for Joomla 4, 5
 and 6). Studied against **JComments 5.0.6** and diffed against **5.0.5**. Driven end-to-end on Joomla

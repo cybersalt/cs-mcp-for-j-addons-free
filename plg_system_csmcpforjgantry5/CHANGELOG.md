@@ -1,6 +1,6 @@
 # MCP for Gantry 5 — Changelog
 
-## 🚀 Version 1.0.0 (October 24, 2026)
+## 🚀 Version 1.0.0 (October 29, 2026)
 
 First release. 21 tools for the **Gantry 5** template framework (`pkg_gantry5`) by Tiger12. Studied against
 **Gantry 5.6.4** with the **Helium 5.6.4** theme and driven end-to-end on Joomla 6.2.0 / PHP 8.3, including

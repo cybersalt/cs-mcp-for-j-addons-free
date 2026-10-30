@@ -1,6 +1,6 @@
 # MCP for Page Protector — Changelog
 
-## 🚀 Version 1.0.0 (October 24, 2026)
+## 🚀 Version 1.0.0 (October 29, 2026)
 
 First release. 15 tools for **Cybersalt Page Protector** (`com_cspageprotector` + `plg_system_cspageprotector`).
 Built against **Page Protector 0.2.1** and needs **0.2.0 or later**. Driven end-to-end on Joomla 6.2.0 / PHP 8.3,
