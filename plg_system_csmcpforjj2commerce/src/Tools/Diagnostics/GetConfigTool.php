@@ -41,7 +41,7 @@ final class GetConfigTool extends AbstractTool
 			. 'not. Internal bookkeeping markers (onboarding, ACL seed, setup-dismissed flags) are listed '
 			. 'separately because the Options screen hides them. Keys stored in params that the installed '
 			. 'config.xml no longer defines are reported as unknown_stored_keys — usually left over from an '
-			. 'older version. To change a setting use set_j2commerce_config.';
+			. 'older version. Needs Options access, as J2Commerce\'s own Options screen does. To change a setting use set_j2commerce_config.';
 	}
 
 	public function getInputSchema(): array
@@ -65,6 +65,14 @@ final class GetConfigTool extends AbstractTool
 		}
 
 		$this->j2RequireAccess($actor, 'j2commerce.viewsetup');
+
+		// Same rule as J2Commerce's own config route (api/.../ConfigController.php:66-74) and its Options screen.
+		if (!$actor->authorise('core.options', 'com_j2commerce') && !$actor->authorise('core.admin', 'com_j2commerce')) {
+			throw new \RuntimeException(
+				'Refused: reading J2Commerce\'s settings needs its "Configure Options Only" or "Configure ACL & Options" permission, '
+				. 'as its own Options screen does. A Super User can grant it in J2Commerce\'s Options, on the Permissions tab.'
+			);
+		}
 
 		$schema = $this->configSchema();
 		$params = $this->j2RawParams();

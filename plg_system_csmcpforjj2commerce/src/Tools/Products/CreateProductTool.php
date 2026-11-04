@@ -101,7 +101,7 @@ final class CreateProductTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.editproducts');
+		$this->j2RequireAccess($actor, 'j2commerce.editproducts', 'core.create', 'j2commerce.viewproducts');
 
 		// The vendor's own action takes core.create (ProductController.php:153-162).
 		if (!$actor->authorise('core.create', 'com_j2commerce')) {
@@ -110,6 +110,12 @@ final class CreateProductTool extends AbstractTool
 
 		$db        = $this->db;
 		$articleId = $this->requirePositiveInt($arguments, 'article_id');
+
+		if (!$actor->authorise('core.edit', 'com_content.article.' . $articleId)) {
+			throw new \RuntimeException(
+				'Refused: the Joomla account this AI app acts for cannot edit article ' . $articleId . ', and a J2Commerce product is its article. Nothing was written.'
+			);
+		}
 		$type      = (string) ($arguments['product_type'] ?? 'simple');
 
 		if (!\in_array($type, self::CREATABLE_TYPES, true)) {
@@ -160,6 +166,7 @@ final class CreateProductTool extends AbstractTool
 
 		if (isset($arguments['sku'])) {
 			$this->j2RequireFits('sku', (string) $arguments['sku'], 255);
+			$this->j2RequirePlainText('sku', (string) $arguments['sku']);
 		}
 
 		$hasQty      = \array_key_exists('quantity', $arguments);

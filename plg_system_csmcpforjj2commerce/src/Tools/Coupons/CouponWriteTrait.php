@@ -64,6 +64,7 @@ trait CouponWriteTrait
 
 		if (\array_key_exists('name', $a)) {
 			$name = trim((string) $a['name']);
+			$this->j2RequirePlainText('name', $name);
 			$this->j2RequireFits('name', $name, 255);
 			$out['coupon_name'] = $name;
 		}
@@ -76,6 +77,7 @@ trait CouponWriteTrait
 			}
 
 			$this->j2RequireFits('code', $code, 255);
+			$this->j2RequirePlainText('code', $code);
 
 			$clash = (int) $db->setQuery(
 				'SELECT j2commerce_coupon_id FROM ' . $db->quoteName($this->j2Table('coupons'))

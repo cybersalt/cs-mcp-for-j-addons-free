@@ -79,7 +79,7 @@ final class SetStockTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.editproducts');
+		$this->j2RequireAccess($actor, 'j2commerce.editproducts', 'core.edit', 'j2commerce.viewproducts');
 
 		$db = $this->db;
 

@@ -1,8 +1,15 @@
 # MCP for J2Commerce — Changelog
 
-## 📝 Unreleased (ships with this add-on's next release)
+## 🚀 Version 1.0.2 (November 4, 2026)
 
-- 📝 **Uses the core extension's current name.** The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.
+- 🔒 **The table reader now follows J2Commerce's permissions.** `query_j2commerce_table` only asked for View Setup, so an account refused View Orders could still read orders and customer addresses through it. Each table now needs what its own screen needs: View Orders for orders, coupons and vouchers, View Orders and Export Orders for addresses, View Products for the catalogue, View Setup for store setup, and both View Orders and View Setup for anything else.
+- 🔒 **Voucher codes stay masked in the table reader.** Order discount rows hold the code of the voucher that was used, and a voucher can have balance left. `get_j2commerce_order` already masked it; `query_j2commerce_table` returned it in full and could filter on it. It's now masked and can't be filtered or sorted on.
+- 🔒 **Follows J2Commerce's current access rules.** J2Commerce now falls back to Access Administration Interface only while a new permission is waiting to be set up, so clearing a permission in Options takes it away. These tools kept the older fallback and let that account through. Changes also now need J2Commerce's Edit or Create permission and the matching view permission, as its REST API does, and turning an article into a product needs permission to edit that article.
+- 🔒 **Reading settings needs Options access.** `get_j2commerce_config` only asked for View Setup. It now needs Configure Options Only or Configure ACL & Options, as J2Commerce's own Options screen and REST API do.
+- 🔒 **No HTML in plain-text fields.** Order notes, status comments, coupon names, add-to-cart text, SKUs and voucher reasons are refused if they contain tags. J2Commerce strips tags from these itself, and an unfiltered write could put a script on the shop's pages.
+- ⚠️ **Check this after updating if a non-Super User connects an AI app.** That account may need the permissions above, and gets a refusal naming the one that's missing until a Super User allows its group in J2Commerce's Options, on the Permissions tab.
+- 📄 **The package now includes LICENSE.txt.**
+- 📝 **Uses the core extension's current name.** The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so.
 
 ## 🚀 Version 1.0.1 (October 20, 2026)
 

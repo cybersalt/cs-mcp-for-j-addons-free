@@ -91,7 +91,7 @@ final class UpdateVariantTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.editproducts');
+		$this->j2RequireAccess($actor, 'j2commerce.editproducts', 'core.edit', 'j2commerce.viewproducts');
 
 		$db = $this->db;
 
@@ -163,6 +163,7 @@ final class UpdateVariantTool extends AbstractTool
 			if (\array_key_exists($field, $arguments)) {
 				$value = (string) $arguments[$field];
 				$this->j2RequireFits($field, $value, 255);
+				$this->j2RequirePlainText($field, $value);
 				$apply($field, $value);
 			}
 		}

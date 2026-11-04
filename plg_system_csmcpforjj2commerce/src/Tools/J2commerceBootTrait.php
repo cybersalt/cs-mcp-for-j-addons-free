@@ -13,7 +13,9 @@ namespace Cybersalt\Plugin\System\Csmcpforjj2commerce\Tools;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Access\Access;
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Filter\InputFilter;
 use Joomla\CMS\User\User;
 
 /**
@@ -160,6 +162,22 @@ trait J2commerceBootTrait
 	private const J2_SECRET_CONFIG_KEYS = [
 		'queue_key',
 		'downloadid',
+	];
+
+	/** The names these permissions have in J2Commerce -> Options -> Permissions. */
+	private const J2_ACTION_LABELS = [
+		'core.manage'            => 'Access Administration Interface',
+		'core.create'            => 'Create',
+		'core.edit'              => 'Edit',
+		'core.delete'            => 'Delete',
+		'j2commerce.vieworders'  => 'View Orders',
+		'j2commerce.editorders'  => 'Edit Orders',
+		'j2commerce.exportorders' => 'Export Orders',
+		'j2commerce.viewproducts' => 'View Products',
+		'j2commerce.editproducts' => 'Edit Products',
+		'j2commerce.viewreports' => 'View Reports',
+		'j2commerce.viewsetup'   => 'View Setup',
+		'j2commerce.editsetup'   => 'Edit Setup',
 	];
 
 	/** Seeded order statuses (`sql/install.mysql.utf8.sql:923-931`). */
@@ -353,42 +371,77 @@ trait J2commerceBootTrait
 
 	/**
 	 * Replicates the vendor API's `assertAllowed()` (`J2CommerceApiController.php:170-185`)
-	 * against the MCP actor: non-guest, `core.manage` on com_j2commerce, then the
-	 * J2Commerce action.
-	 *
-	 * The action check mirrors `J2CommerceHelper::canAccess()` (`J2CommerceHelper.php:192-220`)
-	 * but is evaluated for `$actor`, not for the application identity — the vendor
-	 * method reads `Factory::getApplication()->getIdentity()`, and we do not want the
-	 * answer to depend on which user the request happened to authenticate as. An
-	 * explicit allow or deny on the action is honoured as-is; with no explicit rule
-	 * the vendor falls back to `core.manage`, and so do we.
+	 * against the MCP actor: non-guest, `core.manage` on com_j2commerce, the J2Commerce
+	 * action, and for a write the core verb and the matching read action as well.
 	 */
-	protected function j2RequireAccess(User $actor, string $action): void
+	protected function j2RequireAccess(User $actor, string $action, string $coreVerb = '', string $readAction = ''): void
 	{
 		if ($actor->guest || (int) $actor->id === 0) {
 			throw new \RuntimeException('J2Commerce tools require an authenticated user.');
 		}
 
 		if (!$actor->authorise('core.manage', 'com_j2commerce')) {
-			throw new \RuntimeException(
-				'This user lacks core.manage on com_j2commerce. J2Commerce\'s own REST API requires it '
-				. 'for every route, and so does this add-on.'
-			);
+			$this->j2Refuse('core.manage');
 		}
 
+		foreach (array_filter([$readAction, $action]) as $needed) {
+			if (!$this->j2Can($actor, $needed)) {
+				$this->j2Refuse($needed);
+			}
+		}
+
+		if ($coreVerb !== '' && !$actor->authorise($coreVerb, 'com_j2commerce')) {
+			$this->j2Refuse($coreVerb);
+		}
+	}
+
+	/**
+	 * Mirrors `J2CommerceHelper::canAccess()` (`J2CommerceHelper.php:192-220`), evaluated for
+	 * `$actor` rather than the application identity. With no explicit rule on the action it
+	 * falls back to core.manage only while that action still awaits J2Commerce's ACL seed, so
+	 * clearing an action in Options takes it away. Versions without the seed helper had the
+	 * plain fallback, and core.manage has already been checked by then.
+	 */
+	protected function j2Can(User $actor, string $action): bool
+	{
 		if ($actor->authorise($action, 'com_j2commerce')) {
-			return;
+			return true;
 		}
 
-		$explicit = \array_key_exists($action, Access::getAssetRules('com_j2commerce')->getData());
+		if (\array_key_exists($action, Access::getAssetRules('com_j2commerce')->getData())) {
+			return false;
+		}
 
-		if ($explicit) {
-			throw new \RuntimeException(
-				'This user is not granted ' . $action . ' on com_j2commerce (an explicit rule for that '
-				. 'action exists in J2Commerce -> Options -> Permissions, and it does not allow this user).'
+		$helper = 'J2Commerce\\Component\\J2commerce\\Administrator\\Helper\\AclSeedHelper';
+
+		if (!class_exists($helper) || !method_exists($helper, 'isPendingSeed')) {
+			return true;
+		}
+
+		return (bool) $helper::isPendingSeed($action, ComponentHelper::getParams('com_j2commerce'));
+	}
+
+	protected function j2Refuse(string $action): never
+	{
+		throw new \RuntimeException(
+			'Refused: the Joomla account this AI app acts for does not have J2Commerce\'s "' . (self::J2_ACTION_LABELS[$action] ?? $action)
+			. '" permission (' . $action . '). MCP for J never lets the AI do more than that account could do in J2Commerce itself. '
+			. 'A Super User can grant it in J2Commerce\'s Options, on the Permissions tab.'
+		);
+	}
+
+	/**
+	 * Refuse markup in a plain-text field. J2Commerce's forms and REST API strip tags from
+	 * these, so an unfiltered write here could put a script on the shop's pages.
+	 */
+	protected function j2RequirePlainText(string $field, string $value): void
+	{
+		if (trim((string) InputFilter::getInstance()->clean($value, 'STRING')) !== trim($value)) {
+			throw new \InvalidArgumentException(
+				$field . ' contains HTML tags or something that reads as one, which J2Commerce does not allow in this field. '
+				. 'Send it as plain text. Nothing was written.'
 			);
 		}
-		// No explicit rule for this action: the vendor falls back to core.manage, already checked.
 	}
 
 	// -----------------------------------------------------------------------

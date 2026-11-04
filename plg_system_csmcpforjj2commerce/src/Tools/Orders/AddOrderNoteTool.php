@@ -65,10 +65,11 @@ final class AddOrderNoteTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.editorders');
+		$this->j2RequireAccess($actor, 'j2commerce.editorders', 'core.edit', 'j2commerce.vieworders');
 
 		$order      = $this->resolveOrder($arguments);
 		$note       = $this->requireString($arguments, 'note');
+		$this->j2RequirePlainText('note', $note);
 		$visibility = (string) ($arguments['visibility'] ?? 'private');
 		$number     = (string) $order['order_id'];
 		$status     = (int) $order['order_state_id'];

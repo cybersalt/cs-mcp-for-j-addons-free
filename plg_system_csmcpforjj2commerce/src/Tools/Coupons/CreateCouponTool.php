@@ -57,7 +57,7 @@ final class CreateCouponTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.editorders');
+		$this->j2RequireAccess($actor, 'j2commerce.editorders', 'core.create', 'j2commerce.vieworders');
 
 		if (!$actor->authorise('core.create', 'com_j2commerce')) {
 			throw new \RuntimeException('Creating a coupon requires core.create on com_j2commerce.');

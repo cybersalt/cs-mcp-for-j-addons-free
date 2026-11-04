@@ -53,7 +53,7 @@ final class UpdateCouponTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.editorders');
+		$this->j2RequireAccess($actor, 'j2commerce.editorders', 'core.edit', 'j2commerce.vieworders');
 
 		$db    = $this->db;
 		$id    = $this->requirePositiveInt($arguments, 'coupon_id');

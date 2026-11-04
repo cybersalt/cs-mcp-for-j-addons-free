@@ -49,7 +49,7 @@ final class DeleteProductPriceTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.editproducts');
+		$this->j2RequireAccess($actor, 'j2commerce.editproducts', 'core.edit', 'j2commerce.viewproducts');
 
 		$priceId = $this->requirePositiveInt($arguments, 'price_id');
 		$table   = $this->db->quoteName($this->j2Table('product_prices'));

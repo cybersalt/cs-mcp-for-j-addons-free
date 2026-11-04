@@ -32,6 +32,33 @@ final class QueryTableTool extends AbstractTool
 {
 	use J2commerceBootTrait;
 
+	/**
+	 * The permission each table's own J2Commerce screen asks for, so this reader cannot show
+	 * what the account is refused elsewhere. Anything not listed needs both View Orders and
+	 * View Setup: the integration queue and metafields can carry order data, and a table added
+	 * by a later version is unknown here.
+	 */
+	private const TABLE_ACTIONS = [
+		'orders' => ['j2commerce.vieworders'], 'orderitems' => ['j2commerce.vieworders'], 'orderitemattributes' => ['j2commerce.vieworders'],
+		'orderinfos' => ['j2commerce.vieworders'], 'ordershippings' => ['j2commerce.vieworders'], 'ordertaxes' => ['j2commerce.vieworders'],
+		'orderfees' => ['j2commerce.vieworders'], 'orderdiscounts' => ['j2commerce.vieworders'], 'orderhistories' => ['j2commerce.vieworders'],
+		'ordertransactions' => ['j2commerce.vieworders'], 'orderdownloads' => ['j2commerce.vieworders'], 'orderstatuses' => ['j2commerce.vieworders'],
+		'coupons' => ['j2commerce.vieworders'], 'vouchers' => ['j2commerce.vieworders'], 'voucheradjustments' => ['j2commerce.vieworders'],
+		'addresses' => ['j2commerce.vieworders', 'j2commerce.exportorders'],
+		'products' => ['j2commerce.viewproducts'], 'variants' => ['j2commerce.viewproducts'], 'productquantities' => ['j2commerce.viewproducts'],
+		'productimages' => ['j2commerce.viewproducts'], 'productfiles' => ['j2commerce.viewproducts'], 'productprice_index' => ['j2commerce.viewproducts'],
+		'product_filters' => ['j2commerce.viewproducts'], 'product_options' => ['j2commerce.viewproducts'], 'product_optionvalues' => ['j2commerce.viewproducts'],
+		'product_prices' => ['j2commerce.viewproducts'], 'product_variant_optionvalues' => ['j2commerce.viewproducts'], 'options' => ['j2commerce.viewproducts'],
+		'optionvalues' => ['j2commerce.viewproducts'], 'filters' => ['j2commerce.viewproducts'], 'filtergroups' => ['j2commerce.viewproducts'],
+		'manufacturers' => ['j2commerce.viewproducts'], 'vendors' => ['j2commerce.viewproducts'],
+		'countries' => ['j2commerce.viewsetup'], 'zones' => ['j2commerce.viewsetup'], 'currencies' => ['j2commerce.viewsetup'],
+		'geozones' => ['j2commerce.viewsetup'], 'geozonerules' => ['j2commerce.viewsetup'], 'taxprofiles' => ['j2commerce.viewsetup'],
+		'taxrates' => ['j2commerce.viewsetup'], 'taxrules' => ['j2commerce.viewsetup'], 'shippingmethods' => ['j2commerce.viewsetup'],
+		'shippingrates' => ['j2commerce.viewsetup'], 'customfields' => ['j2commerce.viewsetup'], 'emailtemplates' => ['j2commerce.viewsetup'],
+		'emailtype_contexts' => ['j2commerce.viewsetup'], 'emailtype_tags' => ['j2commerce.viewsetup'], 'invoicetemplates' => ['j2commerce.viewsetup'],
+		'lengths' => ['j2commerce.viewsetup'], 'weights' => ['j2commerce.viewsetup'],
+	];
+
 	private const OPERATORS = ['=', '!=', '<', '<=', '>', '>=', 'LIKE', 'NOT LIKE', 'IS NULL', 'IS NOT NULL', 'IN', 'NOT IN'];
 
 	public function getName(): string { return 'query_j2commerce_table'; }
@@ -49,7 +76,11 @@ final class QueryTableTool extends AbstractTool
 			. 'customer_profile_id, voucher_code (a bearer credential — whoever holds it spends the '
 			. 'balance), session_id, cart_browser, and the IP-address columns. They are masked in output AND '
 			. 'refused as filter or sort targets, because filtering on a masked column would let its value '
-			. 'be recovered a character at a time. '
+			. 'be recovered a character at a time. Voucher codes in orderdiscounts.discount_code are masked and '
+			. 'cannot be filtered or sorted on either. '
+			. 'PERMISSIONS: each table needs what its own J2Commerce screen needs: View Orders for orders, coupons and '
+			. 'vouchers, View Orders and Export Orders for addresses, View Products for the catalogue, View Setup for '
+			. 'store setup, and both View Orders and View Setup for anything else. '
 			. 'DENIED TABLES: carts, cartitems, paymentprofiles, geocode_cache and uploads. '
 			. 'Remember that a J2Commerce product has no name, price or stock column of its own: the name is '
 			. 'its Joomla article\'s title, price and SKU are on the master variant, and stock is in '
@@ -94,8 +125,6 @@ final class QueryTableTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.viewsetup');
-
 		$requested = strtolower(trim((string) ($arguments['table'] ?? '')));
 
 		if ($requested === '') {
@@ -115,6 +144,10 @@ final class QueryTableTool extends AbstractTool
 					. 'shopper state, payment profiles hold stored-card references, the geocode cache holds '
 					. 'customer addresses and uploads map customer files to orders.',
 			], true);
+		}
+
+		foreach (self::TABLE_ACTIONS[substr($short, \strlen('j2commerce_'))] ?? ['j2commerce.vieworders', 'j2commerce.viewsetup'] as $action) {
+			$this->j2RequireAccess($actor, $action);
 		}
 
 		if (!\in_array($this->db->getPrefix() . $short, $this->j2AllTables(), true)) {
@@ -165,7 +198,7 @@ final class QueryTableTool extends AbstractTool
 				], true);
 			}
 
-			if (\in_array($column, self::J2_REDACTED_COLUMNS, true)) {
+			if (\in_array($column, self::J2_REDACTED_COLUMNS, true) || ($short === 'j2commerce_orderdiscounts' && $column === 'discount_code')) {
 				return ToolResult::json([
 					'ok'    => false,
 					'error' => 'Refusing to filter on "' . $column . '": it is redacted, and filtering on it would '
@@ -227,7 +260,7 @@ final class QueryTableTool extends AbstractTool
 				], true);
 			}
 
-			if (\in_array($orderBy, self::J2_REDACTED_COLUMNS, true)) {
+			if (\in_array($orderBy, self::J2_REDACTED_COLUMNS, true) || ($short === 'j2commerce_orderdiscounts' && $orderBy === 'discount_code')) {
 				return ToolResult::json([
 					'ok'    => false,
 					'error' => 'Refusing to sort on "' . $orderBy . '": sorting on a redacted column leaks its ordering.',
@@ -257,7 +290,14 @@ final class QueryTableTool extends AbstractTool
 			'limit'   => $limit,
 			'offset'  => $offset,
 			'showing' => \count($rows),
-			'rows'    => array_map(fn (array $r): array => $this->j2Redact($r), $rows),
+			'rows'    => array_map(function (array $r): array {
+				// An order's discount row holds a spent voucher's code, and the voucher may have balance left.
+				if (isset($r['discount_code']) && ($r['discount_type'] ?? 'voucher') === 'voucher') {
+					$r['discount_code'] = $this->j2MaskCode((string) $r['discount_code']);
+				}
+
+				return $this->j2Redact($r);
+			}, $rows),
 		];
 
 		if ($redacted !== []) {

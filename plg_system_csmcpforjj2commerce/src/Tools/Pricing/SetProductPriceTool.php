@@ -71,7 +71,7 @@ final class SetProductPriceTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.editproducts');
+		$this->j2RequireAccess($actor, 'j2commerce.editproducts', 'core.edit', 'j2commerce.viewproducts');
 
 		$db       = $this->db;
 		$priceId  = (int) ($arguments['price_id'] ?? 0);

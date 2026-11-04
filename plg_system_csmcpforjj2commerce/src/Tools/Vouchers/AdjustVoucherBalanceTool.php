@@ -88,6 +88,8 @@ final class AdjustVoucherBalanceTool extends AbstractTool
 		$amount = (float) $arguments['amount'];
 		$reason = $this->requireString($arguments, 'reason');
 		$note   = isset($arguments['note']) ? (string) $arguments['note'] : null;
+		$this->j2RequirePlainText('reason', $reason);
+		$this->j2RequirePlainText('note', (string) $note);
 		$order  = isset($arguments['order_number']) && trim((string) $arguments['order_number']) !== '' ? trim((string) $arguments['order_number']) : null;
 
 		if (!\in_array($type, ['credit', 'debit', 'correction'], true)) {

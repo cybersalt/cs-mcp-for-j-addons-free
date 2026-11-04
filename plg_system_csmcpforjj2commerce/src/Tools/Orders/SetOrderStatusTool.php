@@ -105,6 +105,7 @@ final class SetOrderStatusTool extends AbstractTool
 		$to       = $this->requirePositiveInt($arguments, 'status_id');
 		$notify   = (bool) ($arguments['notify'] ?? false);
 		$comment  = trim((string) ($arguments['comment'] ?? ''));
+		$this->j2RequirePlainText('comment', $comment);
 		$statuses = $this->j2StatusMap();
 
 		if (!isset($statuses[$to])) {

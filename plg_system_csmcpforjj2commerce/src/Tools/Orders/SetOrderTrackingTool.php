@@ -69,6 +69,7 @@ final class SetOrderTrackingTool extends AbstractTool
 
 		$order    = $this->resolveOrder($arguments);
 		$tracking = $this->requireString($arguments, 'tracking_number');
+		$this->j2RequirePlainText('tracking_number', $tracking);
 		$number   = (string) $order['order_id'];
 		$table    = $this->db->quoteName($this->j2Table('ordershippings'));
 

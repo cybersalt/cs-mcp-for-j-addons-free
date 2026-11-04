@@ -78,7 +78,7 @@ final class UpdateProductTool extends AbstractTool
 			return $this->j2NotInstalledError();
 		}
 
-		$this->j2RequireAccess($actor, 'j2commerce.editproducts');
+		$this->j2RequireAccess($actor, 'j2commerce.editproducts', 'core.edit', 'j2commerce.viewproducts');
 
 		$productId = $this->requirePositiveInt($arguments, 'product_id');
 		$product   = $this->requireProduct($productId);
@@ -114,6 +114,7 @@ final class UpdateProductTool extends AbstractTool
 
 		if (\array_key_exists('addtocart_text', $arguments)) {
 			$text = (string) $arguments['addtocart_text'];
+			$this->j2RequirePlainText('addtocart_text', $text);
 			$this->j2RequireFits('addtocart_text', $text, 255);
 			$apply('addtocart_text', $text, (string) $product['addtocart_text']);
 		}
