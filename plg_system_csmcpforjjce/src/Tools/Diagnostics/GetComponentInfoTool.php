@@ -92,6 +92,8 @@ final class GetComponentInfoTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->jceRequire($actor);
+
 		$base = $this->jceAdminBase();
 
 		if ($base === null) {

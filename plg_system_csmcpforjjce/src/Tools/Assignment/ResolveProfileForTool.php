@@ -108,6 +108,8 @@ final class ResolveProfileForTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->jceRequire($actor, 'jce.profiles');
+
 		if ($this->jceAdminBase() === null) {
 			return $this->jceNotInstalledError();
 		}

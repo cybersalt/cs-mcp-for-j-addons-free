@@ -1,7 +1,12 @@
 <div class="changelog-container">
 <h1>📋 MCP for JCE — Changelog</h1>
-<h2>📝 Unreleased (ships with this add-on's next release)</h2>
+<h2>🚀 Version 1.0.3 (November 4, 2026)</h2>
 <ul>
+<li>🔒 <strong>Every tool now applies JCE's own permissions.</strong> The AI can no longer do more than the Joomla account it acts for could do in JCE itself. Each tool needs JCE's Access Component permission, plus Editor Profiles for profile work or Editor Global Configuration for the settings read. Super Users pass as before. Before this, any account with MCP access could use every tool, including ones that change what an editor profile can upload.</li>
+<li>🔒 <strong>API keys in profile settings are masked.</strong> <code>get_jce_profile</code>, <code>get_jce_profile_params</code> and the change report from <code>set_jce_profile_params</code> now show credential settings, such as the AI Assistant plugin's <code>apikey</code>, as <code>[redacted]</code>. They're still stored as set.</li>
+<li>🐛 <strong>Works with JCE 3.</strong> JCE 3 moved its plugin list and manifests, so on JCE 3.0 <code>list_jce_plugins</code> came back empty, <code>get_jce_plugin</code> found nothing, and toolbar names were reported or refused as unknown. The tools now read both JCE 3's and JCE 2's locations.</li>
+<li>⚠️ <strong>Check this after updating if a non-Super User connects an AI app.</strong> That account now needs those permissions in JCE's Options, on the Permissions tab, and gets a clear refusal until a Super User allows its group.</li>
+<li>📄 <strong>The package now includes LICENSE.txt.</strong> </li>
 <li>📝 <strong>Uses the core extension's current name.</strong> The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.</li>
 </ul>
 <h2>🚀 Version 1.0.2 (October 20, 2026)</h2>

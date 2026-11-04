@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjjce\Tools;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Plugin\PluginHelper;
+use Joomla\CMS\User\User;
 
 /**
  * Shared orientation and encoding for every JCE tool.
@@ -135,6 +136,53 @@ trait JceBootTrait
 	}
 
 	/** Absolute path to the admin component, or null when JCE is not installed. */
+	/**
+	 * Refuses unless the account has the permission JCE's own screens need.
+	 *
+	 * Same rule as `Dispatcher::checkAccess()` in com_jce: core.manage gets into the
+	 * component, then jce.profiles or jce.config for that screen. Super Users pass.
+	 */
+	protected function jceRequire(User $actor, string $action = ''): void
+	{
+		if ($this->jceAdminBase() === null) {
+			return;
+		}
+
+		$labels = ['core.manage' => 'Access Component', 'jce.config' => 'Editor Global Configuration', 'jce.profiles' => 'Editor Profiles'];
+
+		foreach (array_filter(['core.manage', $action]) as $required) {
+			if (!$actor->authorise($required, 'com_jce')) {
+				throw new \RuntimeException('Refused: the Joomla account this AI app acts for does not have JCE\'s "' . $labels[$required] . '" permission (' . $required . '). '
+					. 'MCP for J never lets the AI do more than that account could do in JCE itself. A Super User can grant it in JCE\'s Options, on the Permissions tab.');
+			}
+		}
+	}
+
+	/**
+	 * Profile settings with credentials masked, for anything returned to the AI.
+	 * JCE add-ons keep their keys here, such as `aia.apikey` for the AI Assistant.
+	 */
+	protected function jceMaskSecrets(array $params): array
+	{
+		foreach ($params as $key => $value) {
+			if (\is_array($value)) {
+				$params[$key] = $this->jceMaskSecrets($value);
+			} elseif ($this->jceIsSecretPath((string) $key) && $value !== '' && $value !== null) {
+				$params[$key] = '[redacted]';
+			}
+		}
+
+		return $params;
+	}
+
+	/** True for a settings key or dotted path whose last part names a credential. */
+	protected function jceIsSecretPath(string $path): bool
+	{
+		$parts = explode('.', $path);
+
+		return preg_match('/(api_?key|access_?key|secret|password|passwd|token$|_key$|^key$)/i', (string) end($parts)) === 1;
+	}
+
 	protected function jceAdminBase(): ?string
 	{
 		if (self::$jceBaseCache !== null) {
@@ -811,17 +859,17 @@ trait JceBootTrait
 		$base    = $this->jceAdminBase();
 
 		if ($base !== null) {
-			foreach ($this->jceReadJson($base . '/helpers/commands.json') as $name => $meta) {
+			foreach ($this->jceReadJson($this->jceCoreJsonPath('commands.json')) as $name => $meta) {
 				$catalog[(string) $name] = $this->jceCatalogEntry((string) $name, (array) $meta, 'command', 'core');
 			}
 
-			foreach ($this->jceReadJson($base . '/helpers/plugins.json') as $name => $meta) {
+			foreach ($this->jceReadJson($this->jceCoreJsonPath('plugins.json')) as $name => $meta) {
 				$catalog[(string) $name] = $this->jceCatalogEntry((string) $name, (array) $meta, 'plugin', 'core');
 			}
 		}
 
 		if ($this->jceIsPro()) {
-			$proJson = JPATH_PLUGINS . '/system/jcepro/editor/pro.json';
+			$proJson = $this->jceProJsonPath();
 
 			foreach ($this->jceReadJson($proJson) as $name => $meta) {
 				$existing = $catalog[(string) $name] ?? null;
@@ -877,6 +925,25 @@ trait JceBootTrait
 		ksort($catalog);
 
 		return self::$jceCatalogCache = $catalog;
+	}
+
+	/**
+	 * JCE 3 moved the catalogue into plg_editors_jce (`Wfe/Editor/`). JCE 2 kept it in
+	 * com_jce's helpers folder.
+	 */
+	protected function jceCoreJsonPath(string $file): string
+	{
+		$jce3 = JPATH_PLUGINS . '/editors/jce/Wfe/Editor/' . $file;
+
+		return is_file($jce3) ? $jce3 : (string) $this->jceAdminBase() . '/helpers/' . $file;
+	}
+
+	/** Pro's catalogue: `Wfe/pro.json` on JCE 3, `editor/pro.json` on JCE 2. */
+	protected function jceProJsonPath(): string
+	{
+		$jce3 = JPATH_PLUGINS . '/system/jcepro/Wfe/pro.json';
+
+		return is_file($jce3) ? $jce3 : JPATH_PLUGINS . '/system/jcepro/editor/pro.json';
 	}
 
 	/**

@@ -88,6 +88,8 @@ final class GetPluginTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->jceRequire($actor, 'jce.profiles');
+
 		$base = $this->jceAdminBase();
 
 		if ($base === null) {
@@ -214,6 +216,13 @@ final class GetPluginTool extends AbstractTool
 			}
 
 			$candidates[] = [
+				'file'    => $base . '/forms/editor.xml',
+				'label'   => 'administrator/components/com_jce/forms/editor.xml',
+				'section' => 'editor',
+				'edition' => 'core',
+			];
+
+			$candidates[] = [
 				'file'    => $base . '/models/forms/editor.xml',
 				'label'   => 'administrator/components/com_jce/models/forms/editor.xml',
 				'section' => 'editor',
@@ -232,6 +241,24 @@ final class GetPluginTool extends AbstractTool
 			]];
 		}
 
+		// JCE 3 layout: Wfe/Plugins/Editor/<Name>/<name>.xml
+		if ($pro) {
+			$candidates[] = [
+				'file'    => JPATH_PLUGINS . '/system/jcepro/Wfe/Plugins/Editor/' . ucfirst($name) . '/' . $name . '.xml',
+				'label'   => 'plugins/system/jcepro/Wfe/Plugins/Editor/' . ucfirst($name) . '/' . $name . '.xml',
+				'section' => $name,
+				'edition' => 'pro',
+			];
+		}
+
+		$candidates[] = [
+			'file'    => JPATH_PLUGINS . '/editors/jce/Wfe/Plugins/Editor/' . ucfirst($name) . '/' . $name . '.xml',
+			'label'   => 'plugins/editors/jce/Wfe/Plugins/Editor/' . ucfirst($name) . '/' . $name . '.xml',
+			'section' => $name,
+			'edition' => 'core',
+		];
+
+		// JCE 2 layout
 		if ($pro) {
 			$candidates[] = [
 				'file'    => JPATH_PLUGINS . '/system/jcepro/editor/plugins/' . $name . '/' . $name . '.xml',

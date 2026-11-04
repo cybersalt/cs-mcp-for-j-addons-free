@@ -96,6 +96,8 @@ final class GetConfigTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->jceRequire($actor, 'jce.config');
+
 		if ($this->jceAdminBase() === null) {
 			return $this->jceNotInstalledError();
 		}

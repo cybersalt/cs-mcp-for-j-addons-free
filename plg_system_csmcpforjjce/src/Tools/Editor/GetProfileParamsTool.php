@@ -96,6 +96,8 @@ final class GetProfileParamsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->jceRequire($actor, 'jce.profiles');
+
 		if ($this->jceAdminBase() === null) {
 			return $this->jceNotInstalledError();
 		}
@@ -117,7 +119,7 @@ final class GetProfileParamsTool extends AbstractTool
 			return $this->jceEncryptedParamsError($id, $decoded);
 		}
 
-		$params  = $decoded['params'];
+		$params  = $this->jceMaskSecrets($decoded['params']);
 		$flat    = $this->jceFlattenParams($params);
 		$plugins = $this->jceSplitList($row['plugins'] ?? '');
 

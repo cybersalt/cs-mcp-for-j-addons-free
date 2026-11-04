@@ -105,6 +105,8 @@ final class SetProfileParamsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->jceRequire($actor, 'jce.profiles');
+
 		if ($this->jceAdminBase() === null) {
 			return $this->jceNotInstalledError();
 		}
@@ -258,9 +260,9 @@ final class SetProfileParamsTool extends AbstractTool
 			$changes[] = [
 				'action' => 'set',
 				'path'   => $path,
-				'was'    => $old === $sentinel ? null : $old,
+				'was'    => $old === $sentinel ? null : ($this->jceIsSecretPath($path) ? '[redacted]' : $old),
 				'was_set' => $old !== $sentinel,
-				'now'    => $value,
+				'now'    => $this->jceIsSecretPath($path) ? '[redacted]' : $value,
 			];
 		}
 
@@ -277,7 +279,7 @@ final class SetProfileParamsTool extends AbstractTool
 
 			$after = $this->jceUnsetParamPath($after, $path);
 
-			$changes[] = ['action' => 'unset', 'path' => $path, 'was' => $old, 'was_set' => true];
+			$changes[] = ['action' => 'unset', 'path' => $path, 'was' => $this->jceIsSecretPath($path) ? '[redacted]' : $old, 'was_set' => true];
 		}
 
 		$encoded = $this->jceEncodeParams($after);
@@ -334,7 +336,7 @@ final class SetProfileParamsTool extends AbstractTool
 			$response['message'] = 'Validated but not written. Every refusal that applies to a real '
 				. 'write was evaluated first, so a preview that returns ok:true will also write '
 				. 'successfully. Call again without preview to apply.';
-			$response['result_tree'] = $after;
+			$response['result_tree'] = $this->jceMaskSecrets($after);
 
 			if ($warnings !== []) {
 				$response['warnings'] = $warnings;

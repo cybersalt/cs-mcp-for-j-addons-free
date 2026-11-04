@@ -82,6 +82,8 @@ final class ListPluginsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->jceRequire($actor, 'jce.profiles');
+
 		if ($this->jceAdminBase() === null) {
 			return $this->jceNotInstalledError();
 		}
@@ -206,11 +208,11 @@ final class ListPluginsTool extends AbstractTool
 					. 'browser.filesystem.',
 			],
 			'catalogue_sources' => [
-				'commands' => 'administrator/components/com_jce/helpers/commands.json',
-				'core_plugins' => 'administrator/components/com_jce/helpers/plugins.json',
+				'commands' => substr($this->jceCoreJsonPath('commands.json'), \strlen(JPATH_ROOT) + 1),
+				'core_plugins' => substr($this->jceCoreJsonPath('plugins.json'), \strlen(JPATH_ROOT) + 1),
 				'pro_plugins' => $this->jceIsPro()
-					? 'plugins/system/jcepro/editor/pro.json (merged — Pro is enabled)'
-					: 'plugins/system/jcepro/editor/pro.json (NOT merged — the Pro system plugin is not enabled)',
+					? substr($this->jceProJsonPath(), \strlen(JPATH_ROOT) + 1) . ' (merged — Pro is enabled)'
+					: substr($this->jceProJsonPath(), \strlen(JPATH_ROOT) + 1) . ' (NOT merged — the Pro system plugin is not enabled)',
 				'third_party' => '#__extensions where type=plugin and folder=jce',
 			],
 			'component' => $this->jceEditionNotice(),

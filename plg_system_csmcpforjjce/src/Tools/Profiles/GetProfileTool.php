@@ -82,6 +82,8 @@ final class GetProfileTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->jceRequire($actor, 'jce.profiles');
+
 		if ($this->jceAdminBase() === null) {
 			return $this->jceNotInstalledError();
 		}
@@ -181,7 +183,7 @@ final class GetProfileTool extends AbstractTool
 					'available' => true,
 					'bytes'     => $decoded['bytes'],
 					'keys'      => array_keys($decoded['params']),
-					'tree'      => $decoded['params'],
+					'tree'      => $this->jceMaskSecrets($decoded['params']),
 					'note'      => 'Top-level keys are one per plugin name, plus `editor` for the '
 						. 'profile-wide editor settings and, under Pro, `setup` for query-variable '
 						. 'scoping. Params for a plugin no longer listed in the `plugins` column are '
