@@ -70,6 +70,8 @@ final class SetReviewStateTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->vmRequire($actor, 'ratings.edit.state');
+
 		if ($this->vmAdminBase() === null) {
 			return $this->vmNotInstalledError();
 		}

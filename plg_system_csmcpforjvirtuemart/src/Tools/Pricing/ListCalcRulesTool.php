@@ -72,6 +72,8 @@ final class ListCalcRulesTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->vmRequire($actor, 'calc', 'product');
+
 		if ($this->vmAdminBase() === null) {
 			return $this->vmNotInstalledError();
 		}

@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjvirtuemart\Tools;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
+use Joomla\CMS\User\User;
 
 /**
  * Shared orientation and safety rails for every VirtueMart tool.
@@ -138,6 +139,112 @@ trait VirtuemartBootTrait
 		'virtuemart_configs',
 		'virtuemart_carts',
 	];
+
+	/** VirtueMart's permission (the part after `vm.`) to its name on the Permissions tab. */
+	private const VM_TASK_LABELS = [
+		'calc' => 'Tax & Calculation Rule access',
+		'category' => 'Category access',
+		'category.create' => 'Category create',
+		'category.delete' => 'Category delete',
+		'category.edit' => 'Category edit',
+		'config' => 'Configuration access',
+		'country' => 'Country access',
+		'coupon' => 'Coupon access',
+		'currency' => 'Currency access',
+		'inventory' => 'Inventory access',
+		'managevendors' => 'Manage Vendors',
+		'manufacturer' => 'Manufacturer access',
+		'manufacturer.create' => 'Manufacturer create',
+		'manufacturer.edit' => 'Manufacturer edit',
+		'media' => 'Media files access',
+		'orders' => 'Order access',
+		'orders.status' => 'Order status change',
+		'orderstatus' => 'Order status access',
+		'product' => 'Product access',
+		'product.create' => 'Product create',
+		'product.delete' => 'Product delete',
+		'product.edit' => 'Product edit',
+		'product.edit.state' => 'Product edit state',
+		'ratings' => 'Rating access',
+		'ratings.delete' => 'Rating delete',
+		'ratings.edit.state' => 'Rating edit',
+		'shoppergroup' => 'Shoppergroup manage',
+		'state' => 'State access',
+		'user' => 'Shopper access',
+		'user.edit' => 'Shopper edit',
+		'user.editshop' => 'Shop edit',
+		'user.editvendor' => 'Vendor edit',
+	];
+
+	/**
+	 * Refuses unless the account has the permission VirtueMart's own screens need.
+	 *
+	 * Same rule as `vmAccess::manager()` (`helpers/vmaccess.php:136-157`), which can't
+	 * be called here: it reads the session user, and most tools never load VirtueMart.
+	 * `core.admin` passes everything; otherwise core.manage gets into the component and
+	 * any one of the `vm.<task>` actions allows the tool. No tasks means core.manage only.
+	 */
+	protected function vmRequire(User $actor, string ...$tasks): void
+	{
+		if ($this->vmAdminBase() === null) {
+			return;
+		}
+
+		if ($actor->authorise('core.admin') || $actor->authorise('core.admin', 'com_virtuemart')) {
+			return;
+		}
+
+		if (!$actor->authorise('core.manage', 'com_virtuemart')) {
+			throw new \RuntimeException('Refused: the Joomla account this AI app acts for does not have VirtueMart\'s "Access Administration Interface" permission (core.manage). '
+				. 'MCP for J never lets the AI do more than that account could do in VirtueMart itself. A Super User can grant it in VirtueMart\'s Options, on the Permissions tab.');
+		}
+
+		if ($tasks === []) {
+			return;
+		}
+
+		foreach ($tasks as $task) {
+			if ($actor->authorise('vm.' . $task, 'com_virtuemart')) {
+				return;
+			}
+		}
+
+		$labels = array_map(static fn (string $t): string => self::VM_TASK_LABELS[$t] ?? $t, $tasks);
+
+		throw new \RuntimeException('Refused: the Joomla account this AI app acts for has none of these VirtueMart permissions: ' . implode(', ', $labels) . '. '
+			. 'MCP for J never lets the AI do more than that account could do in VirtueMart itself. A Super User can grant them in VirtueMart\'s Options, on the Permissions tab.');
+	}
+
+	/**
+	 * The permission a table's own screen needs. A table with no screen of its own needs
+	 * Configuration, including payment plugin tables, which can hold gateway data.
+	 *
+	 * @return string[]
+	 */
+	protected function vmTableTasks(string $short): array
+	{
+		foreach ([
+			'/^virtuemart_(products|product_)/'                         => ['product'],
+			'/^virtuemart_(categories|category_)/'                      => ['category'],
+			'/^virtuemart_(manufacturers|manufacturer)/'                => ['manufacturer'],
+			'/^virtuemart_(orders|order_|invoices)/'                    => ['orders'],
+			'/^virtuemart_(userinfos|vmusers|vmuser_)/'                 => ['user'],
+			'/^virtuemart_(ratings|rating_)/'                           => ['ratings'],
+			'/^virtuemart_(shoppergroups)/'                             => ['shoppergroup'],
+			'/^virtuemart_(calcs|calc_)/'                               => ['calc'],
+			'/^virtuemart_(countries|worldzones)/'                      => ['country'],
+			'/^virtuemart_states/'                                      => ['state'],
+			'/^virtuemart_currencies/'                                  => ['currency'],
+			'/^virtuemart_coupons/'                                     => ['coupon'],
+			'/^virtuemart_medias/'                                      => ['media'],
+		] as $pattern => $tasks) {
+			if (preg_match($pattern, $short)) {
+				return $tasks;
+			}
+		}
+
+		return ['config'];
+	}
 
 	/** `helpers/tableupdater.php:51-57` — the seven tables with `_<lang>` satellites. */
 	private const TRANSLATABLE_TABLES = [

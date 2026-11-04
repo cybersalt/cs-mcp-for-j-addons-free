@@ -89,6 +89,8 @@ final class GetConfigTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->vmRequire($actor, 'config');
+
 		if ($this->vmAdminBase() === null) {
 			return $this->vmNotInstalledError();
 		}
@@ -134,6 +136,11 @@ final class GetConfigTool extends AbstractTool
 
 			if ($search !== '' && !str_contains(strtolower((string) $key), $search)) {
 				continue;
+			}
+
+			// member_access_number is the shop's VirtueMart licence key (controllers/virtuemart.php).
+			if ($value !== '' && $value !== null && preg_match('/(access_number|password|passwd|secret|token|api_?key|_key$|license|licence)/i', (string) $key)) {
+				$value = '[redacted]';
 			}
 
 			$filtered[$key] = $value;

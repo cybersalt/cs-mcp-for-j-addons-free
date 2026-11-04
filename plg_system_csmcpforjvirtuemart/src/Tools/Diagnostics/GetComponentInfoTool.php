@@ -78,6 +78,8 @@ final class GetComponentInfoTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->vmRequire($actor);
+
 		$base = $this->vmAdminBase();
 
 		if ($base === null) {

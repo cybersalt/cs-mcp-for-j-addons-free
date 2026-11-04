@@ -68,6 +68,8 @@ final class ListStatesTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->vmRequire($actor, 'state', 'orders', 'user');
+
 		if ($this->vmAdminBase() === null) {
 			return $this->vmNotInstalledError();
 		}

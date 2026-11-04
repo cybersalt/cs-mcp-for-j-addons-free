@@ -76,6 +76,8 @@ final class ListReviewsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->vmRequire($actor, 'ratings');
+
 		if ($this->vmAdminBase() === null) {
 			return $this->vmNotInstalledError();
 		}

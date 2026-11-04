@@ -118,6 +118,8 @@ final class QueryTableTool extends AbstractTool
 
 		$short = $this->normalise($requested);
 
+		$this->vmRequire($actor, ...$this->vmTableTasks($short));
+
 		if (\in_array($short, $this->vmReadDenylist(), true)) {
 			return ToolResult::json([
 				'ok'    => false,

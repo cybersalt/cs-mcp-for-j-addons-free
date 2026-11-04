@@ -70,6 +70,8 @@ final class ListVendorsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->vmRequire($actor, 'managevendors', 'user.editshop', 'user.editvendor');
+
 		if ($this->vmAdminBase() === null) {
 			return $this->vmNotInstalledError();
 		}
