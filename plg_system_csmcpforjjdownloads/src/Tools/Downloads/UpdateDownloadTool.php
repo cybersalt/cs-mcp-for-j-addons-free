@@ -212,6 +212,6 @@ final class UpdateDownloadTool extends AbstractTool
 			$response['problems'] = $problems;
 		}
 
-		return ToolResult::json($response, $problems !== []);
+		return ToolResult::json($this->jdFilterReport($response), $problems !== []);
 	}
 }

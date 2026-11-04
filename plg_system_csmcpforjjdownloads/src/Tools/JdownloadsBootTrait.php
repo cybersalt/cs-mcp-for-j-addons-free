@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjjdownloads\Tools;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Filter\InputFilter;
 use Joomla\CMS\Table\Table;
 use Joomla\CMS\User\User;
 use Joomla\Database\ParameterType;
@@ -114,6 +115,19 @@ trait JdownloadsBootTrait
 	 * and rating tables hold visitor IP addresses.
 	 */
 	private const JD_REDACTED = ['password', 'password_md5', 'log_ip', 'lastip'];
+
+	/** The names these permissions have in jDownloads -> Options -> Permissions. */
+	private const JD_ACTION_LABELS = [
+		'core.admin'      => 'Configure ACL & Options',
+		'core.manage'     => 'Access Administration Interface',
+		'core.create'     => 'Create',
+		'core.edit'       => 'Edit',
+		'core.edit.state' => 'Edit State',
+		'core.delete'     => 'Delete',
+	];
+
+	/** HTML fields Joomla's text filters changed in this call, for the tool's response. */
+	private array $jdFilteredFields = [];
 
 	private static ?bool $jdInstalledCache = null;
 
@@ -623,12 +637,64 @@ trait JdownloadsBootTrait
 		}
 
 		if (!$actor->authorise('core.manage', 'com_jdownloads')) {
-			throw new \RuntimeException('This user lacks core.manage on com_jdownloads, which the jDownloads admin requires.');
+			$this->jdRefuse('core.manage', 'com_jdownloads');
 		}
 
 		if ($action !== null && !$actor->authorise($action, $asset)) {
-			throw new \RuntimeException('This user is not granted ' . $action . ' on ' . $asset . '.');
+			$this->jdRefuse($action, $asset);
 		}
+	}
+
+	protected function jdRefuse(string $action, string $asset): never
+	{
+		throw new \RuntimeException(
+			'Refused: the Joomla account this AI app acts for does not have jDownloads\' "' . (self::JD_ACTION_LABELS[$action] ?? $action)
+			. '" permission (' . $action . ') on ' . $asset . '. MCP for J never lets the AI do more than that account could do in jDownloads itself. '
+			. 'A Super User can grant it in jDownloads\' Options, on the Permissions tab.'
+		);
+	}
+
+	/**
+	 * Refuse markup in a plain-text field. jDownloads' forms strip tags from these, and the
+	 * tools write through its Table, which never saw that form.
+	 */
+	protected function jdRequirePlainText(string $field, string $value): void
+	{
+		if (trim((string) InputFilter::getInstance()->clean($value, 'STRING')) !== trim($value)) {
+			throw new \InvalidArgumentException(
+				$field . ' contains HTML tags or something that reads as one, which jDownloads does not allow in this field. '
+				. 'Send it as plain text. Nothing was written.'
+			);
+		}
+	}
+
+	/**
+	 * Joomla's text filters for this account, as jDownloads' form applies them to its HTML
+	 * fields (`forms/download.xml:117`). Without this, an account whose filters forbid scripts
+	 * could store one on a public page. The response says when it changed anything.
+	 */
+	protected function jdFilterHtml(string $field, string $value): string
+	{
+		$clean = (string) ComponentHelper::filterText($value);
+
+		if ($clean !== $value) {
+			$this->jdFilteredFields[] = $field;
+		}
+
+		return $clean;
+	}
+
+	/** Adds the note about filtered fields to a write's response. */
+	protected function jdFilterReport(array $response): array
+	{
+		if ($this->jdFilteredFields !== []) {
+			$response['text_filter_changed'] = [
+				'fields' => array_values(array_unique($this->jdFilteredFields)),
+				'note'   => 'Joomla\'s text filters for this account changed these fields before they were stored (Global Configuration -> Text Filters).',
+			];
+		}
+
+		return $response;
 	}
 
 	protected function jdRequireNotCheckedOut(array $row, User $actor, string $what): void

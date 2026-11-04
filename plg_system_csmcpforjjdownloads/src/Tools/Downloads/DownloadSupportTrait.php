@@ -116,6 +116,12 @@ trait DownloadSupportTrait
 						$this->jdRequireFits($arg, $value, $def['max']);
 					}
 
+					if (\in_array($arg, ['description', 'description_long', 'changelog'], true)) {
+						$value = $this->jdFilterHtml($arg, $value);
+					} else {
+						$this->jdRequirePlainText($arg, $value);
+					}
+
 					$cols[$def['col']] = $value;
 			}
 		}
@@ -223,7 +229,7 @@ trait DownloadSupportTrait
 		$own   = (int) $row['created_by'] === (int) $actor->id && $actor->authorise('core.edit.own', $asset);
 
 		if (!$actor->authorise('core.edit', $asset) && !$own) {
-			throw new \RuntimeException('This user is not granted core.edit (or core.edit.own) on ' . $asset . '.');
+			$this->jdRefuse('core.edit', $asset);
 		}
 	}
 

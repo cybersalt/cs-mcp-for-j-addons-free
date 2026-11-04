@@ -91,6 +91,7 @@ final class CreateCategoryTool extends AbstractTool
 
 		$title = $this->requireString($arguments, 'title');
 		$this->jdRequireFits('title', $title, 255);
+		$this->jdRequirePlainText('title', $title);
 
 		$language = $this->jdRequireLanguage((string) ($arguments['language'] ?? '*'));
 		$access   = \array_key_exists('access', $arguments) ? $this->jdRequireAccessLevel((int) $arguments['access']) : null;
@@ -98,6 +99,12 @@ final class CreateCategoryTool extends AbstractTool
 		foreach (['description', 'notes', 'metadesc', 'metakey'] as $f) {
 			if (isset($arguments[$f])) {
 				$this->jdRequireFits($f, (string) $arguments[$f], 65535);
+
+				if ($f === 'description') {
+					$arguments[$f] = $this->jdFilterHtml($f, (string) $arguments[$f]);
+				} else {
+					$this->jdRequirePlainText($f, (string) $arguments[$f]);
+				}
 			}
 		}
 
@@ -220,6 +227,6 @@ final class CreateCategoryTool extends AbstractTool
 			$response['model_warning'] = $result['error'];
 		}
 
-		return ToolResult::json($response, $problems !== []);
+		return ToolResult::json($this->jdFilterReport($response), $problems !== []);
 	}
 }

@@ -1,5 +1,13 @@
 # MCP for jDownloads — Changelog
 
+## 🚀 Version 1.0.1 (November 4, 2026)
+
+- 🔒 **Joomla's text filters now apply.** Descriptions and changelogs were stored exactly as sent, so an account whose text filters forbid scripts could put one on a public download page. jDownloads' own form filters these fields. The tools now do the same for download descriptions, long descriptions and changelogs and for category descriptions, and the response says which fields changed.
+- 🔒 **No HTML in plain-text fields.** Titles, versions, authors, notes and the meta fields are refused if they contain tags, because jDownloads' form strips tags from them too.
+- 🔒 **Reading the permission matrix needs Configure ACL & Options.** `list_jdownloads_permissions` was open to anyone with Access Administration Interface. jDownloads shows those tabs only to accounts with Configure ACL & Options.
+- 📝 **Refusals name the permission that's missing,** and where a Super User can grant it.
+- 📄 **The package now includes LICENSE.txt.**
+
 ## 🚀 Version 1.0.0 (October 29, 2026)
 
 First release. 17 tools for **jDownloads** (`com_jdownloads`) by Arno Betz. Studied against

@@ -39,7 +39,7 @@ final class ListPermissionsTool extends AbstractTool
 			. 'download (download_id): the explicit rules stored on that asset, and for every Joomla user group whether '
 			. 'each jDownloads action (download, create, edit, edit state, edit own, delete, and at component level '
 			. 'admin/options/manage) ends up allowed, denied or not set once inheritance from parent categories and the '
-			. 'component is applied.';
+			. 'component is applied. Needs jDownloads\' Configure ACL & Options permission, as its own permission tabs do.';
 	}
 
 	public function getInputSchema(): array
@@ -62,7 +62,7 @@ final class ListPermissionsTool extends AbstractTool
 			return $this->jdNotInstalledError();
 		}
 
-		$this->jdRequireAccess($actor);
+		$this->jdRequireAccess($actor, 'core.admin');
 
 		$catId = (int) ($arguments['category_id'] ?? 0);
 		$dlId  = (int) ($arguments['download_id'] ?? 0);

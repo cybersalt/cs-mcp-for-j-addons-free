@@ -112,6 +112,7 @@ final class UpdateCategoryTool extends AbstractTool
 		// ---------------------------------------------------------------- plan
 		$newTitle = \array_key_exists('title', $arguments) ? $this->requireString($arguments, 'title') : (string) $row['title'];
 		$this->jdRequireFits('title', $newTitle, 255);
+		$this->jdRequirePlainText('title', $newTitle);
 
 		$oldParent = (int) $row['parent_id'];
 		$newParent = \array_key_exists('parent_id', $arguments) ? (int) $this->catResolveParent($arguments['parent_id'], $rootId)['id'] : $oldParent;
@@ -219,6 +220,13 @@ final class UpdateCategoryTool extends AbstractTool
 			if (\array_key_exists($arg, $arguments)) {
 				$value = (string) $arguments[$arg];
 				$this->jdRequireFits($arg, $value, $def['max']);
+
+				if ($arg === 'description') {
+					$value = $this->jdFilterHtml($arg, $value);
+				} else {
+					$this->jdRequirePlainText($arg, $value);
+				}
+
 				$set[$def['col']] = $value;
 			}
 		}
@@ -407,7 +415,7 @@ final class UpdateCategoryTool extends AbstractTool
 			$response['pre_existing_tree_problems'] = $treeBefore;
 		}
 
-		return ToolResult::json($response, $problems !== []);
+		return ToolResult::json($this->jdFilterReport($response), $problems !== []);
 	}
 
 	private function errorText(object $table): string

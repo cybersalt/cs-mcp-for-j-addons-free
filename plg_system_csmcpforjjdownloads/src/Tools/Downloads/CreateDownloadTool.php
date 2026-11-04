@@ -184,6 +184,6 @@ final class CreateDownloadTool extends AbstractTool
 
 		$response['next'] = 'Attach a file with attach_jdownloads_file (list_jdownloads_unassigned_files shows what is waiting in the upload folder).';
 
-		return ToolResult::json($response, $problems !== []);
+		return ToolResult::json($this->jdFilterReport($response), $problems !== []);
 	}
 }
