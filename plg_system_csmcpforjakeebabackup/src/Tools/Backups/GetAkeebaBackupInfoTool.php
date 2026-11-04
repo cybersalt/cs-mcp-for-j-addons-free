@@ -13,6 +13,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\Backups;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
+use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Helper\BackupState;
 use Joomla\CMS\User\User;
 
 /**
@@ -29,8 +30,10 @@ final class GetAkeebaBackupInfoTool extends AbstractTool
 		return 'Get the full record for one Akeeba Backup attempt by id. Returns the '
 			. 'description, comment, start/end timestamps, status (run|fail|complete), '
 			. 'origin, profile, archive filename + absolute path, multipart count, total '
-			. 'size, filesexist flag, frozen flag. Use this after list_akeeba_backups when '
-			. 'you need one row\'s detail.';
+			. 'size, frozen flag, and where the archive is: `stored`, `restorable` and a '
+			. 'plain-words `stored_note` (filesexist=false only means "not on this server"; a '
+			. 'backup uploaded to remote storage is still good). Use this after list_akeeba_backups '
+			. 'when you need one row\'s detail.';
 	}
 
 	public function getInputSchema(): array
@@ -87,7 +90,7 @@ final class GetAkeebaBackupInfoTool extends AbstractTool
 			'frozen'           => (int) $r['frozen'] === 1,
 			'tag'              => (string) ($r['tag'] ?? ''),
 			'backupid'         => (string) ($r['backupid'] ?? ''),
-		];
+		] + BackupState::describe($r);
 
 		$type = (string) $r['type'];
 		if ($type !== '' && $type !== 'full') {
@@ -96,8 +99,8 @@ final class GetAkeebaBackupInfoTool extends AbstractTool
 		// remote_filename: Akeeba sometimes stores the literal string "NULL"
 		// instead of a SQL NULL on records where no remote upload happened. So
 		// !empty() alone isn't sufficient — also reject the literal "NULL".
-		$remoteFilename = (string) ($r['remote_filename'] ?? '');
-		if ($remoteFilename !== '' && strcasecmp($remoteFilename, 'NULL') !== 0) {
+		$remoteFilename = BackupState::remoteFilename($r);
+		if ($remoteFilename !== '') {
 			$out['remote_filename'] = $remoteFilename;
 		}
 

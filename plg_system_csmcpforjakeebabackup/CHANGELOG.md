@@ -1,7 +1,12 @@
 # MCP for Akeeba Backup Core — Changelog
 
-## 📝 Unreleased (ships with this add-on's next release)
+## 🚀 Version 1.0.5 (unreleased, in test)
 
+Thanks to Leandro Santana, whose report ("it did not recognise the latest backups") led to this.
+
+- 🐛 **Backups kept in remote storage are reported as good backups.** When a backup profile uploads to remote storage (Google Drive, S3, Dropbox…) and removes the local copy, Akeeba marks every good backup "file not on this server". The tools passed that flag on as it was, so an AI read the newest backups as missing, and the only record with a file could be a failed one. `list_akeeba_backups` and `get_akeeba_backup_info` now say where each archive is (`stored`: on this server, on this server and in remote storage, remote storage only, no copy found, running, failed), whether it can be restored, and why, in plain words.
+- ✨ **`list_akeeba_backups` answers "when was my last good backup?"** Its summary names the newest backup that can be restored, wherever it's kept. A new `only_restorable` filter lists just those. `only_existing` still means "archive on this server", and its description now says it drops backups kept only in remote storage.
+- 🔍 A backup still marked as running after six hours is called interrupted, and a failed backup's leftover file is called a partial archive.
 - 📝 **Uses the core extension's current name.** The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.
 
 ## 🚀 Version 1.0.4 (October 20, 2026)

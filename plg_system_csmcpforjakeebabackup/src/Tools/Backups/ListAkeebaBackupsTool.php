@@ -13,6 +13,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\Backups;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
+use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Helper\BackupState;
 use Joomla\CMS\User\User;
 
 /**
@@ -49,10 +50,15 @@ final class ListAkeebaBackupsTool extends AbstractTool
 		return 'List Akeeba Backup records (Akeeba calls these "backup statistics"). '
 			. 'Each entry is one backup attempt — when it ran, which profile, status '
 			. '(run/fail/complete), origin, archive filename + path, size, multipart '
-			. 'count, whether the archive still exists on disk. Sorted newest-first. '
-			. 'Optional filters: status (run|fail|complete), origin (backend|frontend|'
-			. 'cli|json|…), profile_id, only_existing (true to drop pruned backups). '
-			. 'Capped at 100 rows; pass limit/offset for paging.';
+			. 'count — plus WHERE the archive is: `stored` (on_server, on_server_and_remote, '
+			. 'remote_only, no_copy_found, running, failed), `restorable` and a plain-words '
+			. '`stored_note`. Use those, not `filesexist`: filesexist=false only means "not on this '
+			. 'server", and a profile that uploads to remote storage and deletes the local copy has '
+			. 'filesexist=false on every good backup. `summary.newest_restorable` is the answer to '
+			. '"when was my last good backup". Sorted newest-first. Optional filters: status, origin '
+			. '(backend|frontend|cli|json|…), profile_id, only_restorable (complete with a copy here '
+			. 'or in remote storage), only_existing (archive on this server only). Capped at 100 rows; '
+			. 'pass limit/offset for paging.';
 	}
 
 	public function getInputSchema(): array
@@ -76,7 +82,11 @@ final class ListAkeebaBackupsTool extends AbstractTool
 				],
 				'only_existing'  => [
 					'type'        => 'boolean',
-					'description' => 'If true, only return backups whose archive still exists on disk (filesexist=1).',
+					'description' => 'If true, only backups whose archive is on THIS server (filesexist=1). This drops good backups kept only in remote storage; for "backups I can restore" use only_restorable.',
+				],
+				'only_restorable' => [
+					'type'        => 'boolean',
+					'description' => 'If true, only complete backups with a copy on this server or in remote storage.',
 				],
 				'limit'          => [
 					'type'        => 'integer',
@@ -153,6 +163,13 @@ final class ListAkeebaBackupsTool extends AbstractTool
 			$q->where($this->db->quoteName('filesexist') . ' = 1');
 		}
 
+		if (!empty($arguments['only_restorable'])) {
+			$remote = $this->db->quoteName('remote_filename');
+			$q->where($this->db->quoteName('status') . ' = ' . $this->db->quote('complete'))
+				->where('(' . $this->db->quoteName('filesexist') . ' = 1 OR (' . $remote . ' IS NOT NULL AND ' . $remote
+					. ' <> ' . $this->db->quote('') . ' AND UPPER(' . $remote . ') <> ' . $this->db->quote('NULL') . '))');
+		}
+
 		$rows = $this->db->setQuery($q, $offset, $limit)->loadAssocList() ?: [];
 
 		$out = array_map(static function (array $r): array {
@@ -173,7 +190,7 @@ final class ListAkeebaBackupsTool extends AbstractTool
 				'total_size_human' => self::humanBytes($totalSize),
 				'filesexist'       => (int) $r['filesexist'] === 1,
 				'frozen'           => (int) $r['frozen'] === 1,
-			];
+			] + BackupState::describe($r);
 
 			// Pro-only columns: only surface when they carry non-default data,
 			// so a clean Core install's response doesn't visually advertise
@@ -196,11 +213,39 @@ final class ListAkeebaBackupsTool extends AbstractTool
 			return $row;
 		}, $rows);
 
+		$byState = array_count_values(array_column($out, 'stored'));
+		ksort($byState);
+
+		// The newest restorable backup across the whole table, not just this page, so
+		// "when was my last good backup" never depends on the filters or the page.
+		$remote = $this->db->quoteName('remote_filename');
+		$newest = $this->db->setQuery(
+			$this->db->getQuery(true)
+				->select($this->db->quoteName(['id', 'backupstart', 'status', 'filesexist', 'remote_filename', 'profile_id']))
+				->from($this->db->quoteName('#__akeebabackup_backups'))
+				->where($this->db->quoteName('status') . ' = ' . $this->db->quote('complete'))
+				->where('(' . $this->db->quoteName('filesexist') . ' = 1 OR (' . $remote . ' IS NOT NULL AND ' . $remote
+					. ' <> ' . $this->db->quote('') . ' AND UPPER(' . $remote . ') <> ' . $this->db->quote('NULL') . '))')
+				->order($this->db->quoteName('id') . ' DESC'),
+			0,
+			1
+		)->loadAssoc();
+
 		return ToolResult::json([
 			'count'    => count($out),
 			'limit'    => $limit,
 			'offset'   => $offset,
 			'timezone' => 'UTC (backupstart and backupend are stored in UTC, as Akeeba records them)',
+			'summary'  => [
+				'on_this_page'      => $byState,
+				'newest_restorable' => $newest ? [
+					'id'          => (int) $newest['id'],
+					'backupstart' => $newest['backupstart'],
+					'profile_id'  => (int) $newest['profile_id'],
+				] + BackupState::describe($newest) : null,
+				'note'              => 'Akeeba keeps a record per backup attempt; old records can be removed by its quotas, so '
+					. 'this list may hold only the most recent backups.',
+			],
 			'backups'  => $out,
 		]);
 	}
