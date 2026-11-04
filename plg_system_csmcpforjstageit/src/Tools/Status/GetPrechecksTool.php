@@ -53,6 +53,10 @@ final class GetPrechecksTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		if (($refusal = $this->stageitRefusal($actor, false)) !== null) {
+			return $refusal;
+		}
+
 		if (!$this->ensureStageItLoaded()) {
 			return $this->notInstalledError();
 		}

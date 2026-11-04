@@ -50,6 +50,6 @@ final class ContinueSyncTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		return $this->runOperation('Sync', 'continue', $arguments);
+		return $this->runOperation('Sync', 'continue', $arguments, $actor);
 	}
 }

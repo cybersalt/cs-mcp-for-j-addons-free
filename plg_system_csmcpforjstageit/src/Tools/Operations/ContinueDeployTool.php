@@ -53,6 +53,6 @@ final class ContinueDeployTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		return $this->runOperation('Deploy', 'continue', $arguments);
+		return $this->runOperation('Deploy', 'continue', $arguments, $actor);
 	}
 }

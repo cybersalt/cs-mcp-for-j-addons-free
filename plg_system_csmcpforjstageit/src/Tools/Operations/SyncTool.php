@@ -38,13 +38,10 @@ final class SyncTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Start a StageIt sync (staging → live via backup snapshot). Promotes '
-			. 'changes made in the staging environment to the live site, snapshotting '
-			. 'the current live state to <docroot>/stgbackups/<timestamp>/ first so you '
-			. 'can restore_stageit_backup if the promotion goes wrong. Chunked internally '
-			. '(buildStgMap → backupFiles → backupDb → checkBackup → prepLiveFiles → '
-			. 'syncLiveFiles). May return done=false + resume_token; call '
-			. 'continue_stageit_sync until done=true. Optional time_budget.';
+		return 'Push the StageIt staging copy to live, with StageIt\'s own push steps exactly as its "Sync to live" button runs them: live is backed up to <docroot>/stgbackups/<date>/ first (unless backups are off in the stage\'s StageIt options), then live\'s files and database are replaced by the stage\'s. '
+			. 'Applies the same checks as `php cli/joomla.php stageit:push`: a complete stage with the right database prefix and stg_ tables, a writable site, no unfinished earlier run (force overrides), backups on (no_backup overrides). '
+			. 'While done is false, call continue_stageit_sync with the resume_token. When done, StageIt records the push in stgbackups/last-push.php, which remove_stageit then accepts. Needs StageIt 6.4.0+ (Joomla 6) or 5.8.0+ (Joomla 5).'
+			. 'The final stretch (syncLiveFiles onwards) runs in ONE call however long it takes, because while StageIt swaps live\'s files and database the site\'s own API (and so this MCP endpoint) is briefly unreachable. If that call times out on the client side, StageIt keeps running on the server: wait, then call get_stageit_status (it may answer 404 for a short while) before doing anything else.';
 	}
 
 	public function getInputSchema(): array
@@ -52,7 +49,9 @@ final class SyncTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'properties' => [
-				'time_budget' => ['type' => 'integer'],
+				'time_budget' => ['type' => 'integer', 'description' => 'Seconds this call may keep starting new steps before it returns a resume_token. Default: min(25, max_execution_time - 10).'],
+				'force' => ['type' => 'boolean', 'description' => 'Push even though a previous StageIt run did not finish.'],
+				'no_backup' => ['type' => 'boolean', 'description' => 'Allow the push when backups are switched off in the stage\'s StageIt options. Live is then NOT backed up first.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -62,6 +61,6 @@ final class SyncTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		return $this->runOperation('Sync', 'start', $arguments);
+		return $this->runOperation('Sync', 'start', $arguments, $actor);
 	}
 }

@@ -33,12 +33,9 @@ final class RemoveTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Start a StageIt remove-staging operation. DESTRUCTIVE: deletes the '
-			. 'entire <docroot>/stageit/ mirror folder + all stg_<prefix>* DB tables. '
-			. 'The staging environment is gone after this completes. Chunked internally '
-			. '(init → rmDb → 0) — usually completes in one call except on very large '
-			. 'staging installs; may return done=false + resume_token. Backups '
-			. '(stgbackups/) are NOT touched. Optional time_budget.';
+		return 'Remove the StageIt staging copy: deletes <docroot>/stageit/ and every stg_ database table, with StageIt\'s own remove steps. Backups in stgbackups/ are kept. '
+			. 'Like `php cli/joomla.php stageit:remove`, it refuses while the staging copy has not been pushed to live since it was built, because that would throw away the work on it; force: true removes it anyway. '
+			. 'Checks afterwards that the folder and the stg_ tables are really gone. While done is false, call continue_stageit_remove with the resume_token. Needs StageIt 6.4.0+ (Joomla 6) or 5.8.0+ (Joomla 5).';
 	}
 
 	public function getInputSchema(): array
@@ -46,7 +43,8 @@ final class RemoveTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'properties' => [
-				'time_budget' => ['type' => 'integer'],
+				'time_budget' => ['type' => 'integer', 'description' => 'Seconds this call may keep starting new steps before it returns a resume_token. Default: min(25, max_execution_time - 10).'],
+				'force' => ['type' => 'boolean', 'description' => 'Remove even though the staging copy has not been pushed since it was built. Changes on the stage are lost.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -56,6 +54,6 @@ final class RemoveTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		return $this->runOperation('Remove', 'start', $arguments);
+		return $this->runOperation('Remove', 'start', $arguments, $actor);
 	}
 }

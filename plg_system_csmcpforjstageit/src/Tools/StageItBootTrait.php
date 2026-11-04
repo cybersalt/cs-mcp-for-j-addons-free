@@ -12,137 +12,109 @@ namespace Cybersalt\Plugin\System\Csmcpforjstageit\Tools;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
+use Joomla\CMS\User\User;
 
 /**
- * Bootstrap helpers for driving StageIt's chunked state-machine from inside
- * an MCP tool.
+ * Loading StageIt and asking it about the site.
  *
- * StageIt (com_stageit, Barnaby Dixon) is not a table-driven Joomla component.
- * It's a filesystem + database mirroring tool. The four big operations —
- * deploy / sync / remove / restoreBackup — are structured as state-machine
- * AJAX flows: each operation has an ordered list of stages, each stage saves
- * mypos/chunkoffset state into a JSON blob, and stages loop under a time
- * budget (`vbAjax::_checkTime()`) until either done or time-out.
+ * StageIt (com_stageit) is not a table-driven component: build, push, remove
+ * and restore are chains of steps that its admin page runs one AJAX request at
+ * a time (stageit.js posts each step's jdata back for the next). StageIt 6.4.0
+ * (Joomla 6) and 5.8.0 (Joomla 5) added a supported way to run those steps
+ * in-process: with vbJson::$cli on, a step throws vbCliStep carrying its result
+ * instead of echoing JSON and dying. Its own console plugin
+ * (plugins/console/stageit, StageItCli::runSteps()) drives the chain that way,
+ * and so does this add-on, a time budget's worth of steps per MCP call
+ * (see OperationRunTrait).
  *
- * StageIt's admin UI drives the loop from JavaScript: repeatedly POST the
- * previous response back as the next request. Chunk boundaries and resume
- * points are all internal to StageIt already; the JS layer is just a while()
- * loop with an HTTP call inside.
- *
- * This trait moves that same drive-the-machine loop into PHP so the MCP tool
- * can run inside a single PHP request as long as budget allows. When budget
- * runs out mid-operation, we snapshot StageIt's internal state to a JSON file
- * on disk and return a resume_token. The next MCP call restores the state
- * and continues the loop from exactly where it left off.
- *
- * Three hard details this trait handles for the tool authors:
- *
- *   1. **chdir into StageIt admin.** StageIt's classes use "../" and "../../"
- *      relative paths that assume cwd is administrator/components/com_stageit/.
- *      Under the MCP API endpoint cwd is elsewhere. We chdir once, run stages,
- *      restore cwd in finally.
- *
- *   2. **Suppress saveJson()'s die() + inner chain.** vbAjax::saveJson() calls
- *      vbJson::_saveJson() which echoes and die()s — fatal inside an MCP tool.
- *      It also chains recursively into the next stage. Both behaviours belong
- *      to the browser JS loop, not us. The Steppable* factories in this trait
- *      return a subclass whose saveJson() is a no-op — the tool loop calls
- *      each stage explicitly, reads vbJson::$vars after, and decides itself
- *      whether to run the next stage.
- *
- *   3. **State persistence between MCP calls.** vbJson uses a static class
- *      property to hold state within one PHP request. Between requests it's
- *      empty. We snapshot the state (action, progress, msg, jdata) to
- *      administrator/logs/stageit_mcp_state_<token>.json between calls, and
- *      restore it on continue_*.
+ * The read side (stage present, last push, backups, leftovers of an unfinished
+ * run) comes from StageItCli itself, so `get_stageit_status` says exactly what
+ * `php cli/joomla.php stageit:status --json` says. The push and remove checks
+ * below are the console commands' own (AbstractStageItCommand::pushChecks() /
+ * removeChecks()), which live on a Symfony command and so can't be called
+ * from here.
  */
 trait StageItBootTrait
 {
-	/**
-	 * StageIt component base path, or null if StageIt isn't installed.
-	 */
+	/** StageIt's admin component folder, or null if StageIt isn't installed. */
 	protected function stageitAdminBase(): ?string
 	{
 		$path = JPATH_ADMINISTRATOR . '/components/com_stageit';
-		return is_dir($path) ? $path : null;
+
+		return is_file($path . '/classes/stageIt.class.php') ? $path : null;
 	}
 
-	/**
-	 * Standard error response for "StageIt isn't on this site."
-	 */
 	protected function notInstalledError(): ToolResult
 	{
-		return ToolResult::error(
-			'StageIt (com_stageit) is not installed on this site, or the install is incomplete.'
-		);
+		return ToolResult::error('StageIt (com_stageit) is not installed on this site, or the install is incomplete.');
 	}
 
 	/**
-	 * Load StageIt's classes into the process. Autoloader is registered by
-	 * stageIt.class.php for the `stg` prefix; the framework classes have to
-	 * be require_once'd because they're loaded via a legacy entrypoint.
-	 * Idempotent — safe to call from every tool's run().
+	 * StageIt's own permission, on top of MCP for J's read/write one: the AI
+	 * must never do more than the account could do in StageIt itself.
+	 *
+	 * Every tool needs core.manage on com_stageit, the gate on StageIt's admin
+	 * entry point (stageit.php:12). Build, push, restore and remove also need
+	 * core.admin: they replace the whole site or the stage (a restore rolls
+	 * #__users back too), and an MCP call has no CSRF token or person clicking
+	 * behind it, so they get the permission that already means "can change
+	 * anything".
+	 *
+	 * @return ToolResult|null The refusal, or null when the account may go ahead.
+	 */
+	protected function stageitRefusal(?User $actor, bool $changesSite): ?ToolResult
+	{
+		if ($actor === null || $actor->guest) {
+			return ToolResult::error('Refused: this tool needs a logged-in Joomla account.');
+		}
+
+		if (!$actor->authorise('core.manage', 'com_stageit') && !$actor->authorise('core.admin', 'com_stageit')) {
+			return ToolResult::error('Refused: the Joomla account this AI app acts for does not have StageIt\'s "Access Administration Interface" '
+				. 'permission (core.manage on com_stageit), which StageIt itself needs before it shows anything.');
+		}
+
+		if ($changesSite && !$actor->authorise('core.admin', 'com_stageit')) {
+			return ToolResult::error('Refused: building, pushing, restoring and removing replace the whole site or the stage, so through MCP they need '
+				. 'StageIt\'s "Configure ACL & Options" permission (core.admin on com_stageit), which Super Users have.');
+		}
+
+		return null;
+	}
+
+	/**
+	 * Load StageIt the way its console plugin does (StageItCli::__construct()):
+	 * stageIt.class.php, then framework/init.php, which registers the vb*
+	 * autoloader. Idempotent.
 	 */
 	protected function ensureStageItLoaded(): bool
 	{
 		$base = $this->stageitAdminBase();
+
 		if ($base === null) {
 			return false;
 		}
 
-		static $loaded = false;
-		if ($loaded) {
-			return true;
-		}
-
-		// Framework classes StageIt's classes call into. Order matters: vbLog
-		// and vbParams get called from stageIt's initParams; vbAjax needs
-		// vbParams already loaded because its constructor reads them.
-		foreach (['vbAjax', 'vbAssist', 'vbArchive', 'vbDb', 'vbFiles', 'vbJson', 'vbLog', 'vbParams'] as $cls) {
-			$file = $base . '/framework/' . $cls . '.class.php';
-			if (is_file($file)) {
-				require_once $file;
-			}
-		}
-
-		// stageIt.class.php registers the spl_autoload_register for the stg*
-		// classes and defines the stageIt class itself.
 		require_once $base . '/classes/stageIt.class.php';
 
-		// Now that spl_autoload is registered, we can pre-fault the four
-		// AJAX classes so autoload doesn't run mid-loop.
-		foreach (['stgAjaxDeploy', 'stgAjaxSync', 'stgAjaxRemove', 'stgAjaxRestoreBackup'] as $cls) {
-			if (!class_exists($cls, true)) {
-				// Autoload should have fired; if it didn't, StageIt install is broken.
-				return false;
+		if (is_file($base . '/framework/init.php')) {
+			require_once $base . '/framework/init.php';
+		} else {
+			// Before init.php existed the framework classes were included one by one.
+			foreach (['vbAjax', 'vbAssist', 'vbArchive', 'vbDb', 'vbFiles', 'vbJson', 'vbLog', 'vbParams'] as $cls) {
+				if (is_file($base . '/framework/' . $cls . '.class.php')) {
+					require_once $base . '/framework/' . $cls . '.class.php';
+				}
 			}
 		}
 
-		// Initialize params — most stages depend on `$this->config` from
-		// vbParams. Same call the StageIt controller makes in its constructor.
-		\stageIt::_initParams();
-
-		// The vbAjax::_checkTime() budget reads from static $GLOBALS['start']
-		// set at framework include time. If we've been sitting in the request
-		// for a while before booting StageIt, that start-time is stale and
-		// StageIt will think budget is already exhausted. Reset to now so the
-		// per-stage budget check reflects "time since we started the stage".
-		if (isset($GLOBALS['start'])) {
-			$GLOBALS['start'] = microtime(true);
-		}
-		if (isset($GLOBALS['recurs'])) {
-			$GLOBALS['recurs'] = 0;
-		}
-
-		$loaded = true;
-		return true;
+		return class_exists('vbJson') && class_exists('stageIt');
 	}
 
 	/**
-	 * Push the StageIt admin directory as cwd for the duration of $fn.
-	 * StageIt's relative paths assume this cwd; from an MCP API request cwd
-	 * is elsewhere. Restore original cwd in finally so downstream code isn't
-	 * disturbed.
+	 * Run $fn from live's administrator/ folder, the working folder of
+	 * StageIt's admin page, whose relative paths ("../" = site root) assume it.
+	 * (1.0.2 used administrator/components/com_stageit/, which sent every
+	 * "../" one level too deep.)
 	 *
 	 * @template T
 	 * @param callable():T $fn
@@ -150,15 +122,15 @@ trait StageItBootTrait
 	 */
 	protected function withStageItCwd(callable $fn)
 	{
-		$base = $this->stageitAdminBase();
-		if ($base === null) {
-			throw new \RuntimeException('StageIt admin base not present.');
-		}
 		$original = getcwd();
-		if (chdir($base) === false) {
-			throw new \RuntimeException('Failed to chdir into ' . $base);
+
+		if (!chdir(JPATH_ADMINISTRATOR)) {
+			throw new \RuntimeException('Could not change to ' . JPATH_ADMINISTRATOR);
 		}
+
 		try {
+			\stageIt::_initParams();
+
 			return $fn();
 		} finally {
 			if ($original !== false) {
@@ -168,127 +140,210 @@ trait StageItBootTrait
 	}
 
 	/**
-	 * Return a Steppable* subclass instance for the given operation. The
-	 * subclass overrides saveJson() so it does NOT die and does NOT recursively
-	 * chain into the next stage — the tool loop handles both concerns.
+	 * The outcome of the last build/push/remove/restore started through MCP.
+	 * The last part of a push or restore runs in one long call, and a client
+	 * that gave up waiting never sees its result, so it is kept here for
+	 * get_stageit_status. Written after the run, so a restore of
+	 * administrator/logs/ can't roll it back.
+	 */
+	protected function lastOpFile(): string
+	{
+		return JPATH_ADMINISTRATOR . '/logs/stageit_mcp_last.php';
+	}
+
+	protected function saveLastOp(array $result): void
+	{
+		@file_put_contents($this->lastOpFile(), "<?php die('Forbidden.'); ?>\n" . json_encode($result, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG));
+	}
+
+	protected function loadLastOp(): ?array
+	{
+		if (!is_file($this->lastOpFile())) {
+			return null;
+		}
+
+		$lines = explode("\n", (string) file_get_contents($this->lastOpFile()), 2);
+		$data  = json_decode($lines[1] ?? '', true);
+
+		return \is_array($data) ? $data : null;
+	}
+
+	/** The installed StageIt version, from its component manifest. */
+	protected function stageitVersion(): ?string
+	{
+		$manifest = (string) $this->db->setQuery(
+			'SELECT manifest_cache FROM ' . $this->db->quoteName('#__extensions')
+			. " WHERE type = 'component' AND element = 'com_stageit'"
+		)->loadResult();
+
+		$decoded = json_decode($manifest, true);
+
+		return \is_array($decoded) && !empty($decoded['version']) ? (string) $decoded['version'] : null;
+	}
+
+	/**
+	 * Does this StageIt run its steps in-process (6.4.0+ on Joomla 6, 5.8.0+ on
+	 * Joomla 5)? Older versions can only be driven by their admin page.
+	 */
+	protected function stageitHasCliMode(): bool
+	{
+		return class_exists('vbJson') && property_exists('vbJson', 'cli') && method_exists('vbJson', '_cliBeginStep') && class_exists('vbCliStep');
+	}
+
+	protected function cliModeMissingError(): ToolResult
+	{
+		return ToolResult::json([
+			'ok'      => false,
+			'error'   => 'This StageIt (' . ($this->stageitVersion() ?? 'unknown version') . ') is too old to be driven from MCP. '
+				. 'Update StageIt to 6.4.0 or later on Joomla 6 (5.8.0 or later on Joomla 5), which can run its steps in-process. '
+				. 'Older versions can only build, push and remove from their own admin page.',
+		], true);
+	}
+
+	/**
+	 * StageIt's console helper (plugins/console/stageit/src/StageItCli.php),
+	 * loaded from its file so it works whether or not that plugin is enabled.
+	 * Null when the file is missing (StageIt older than 6.4.0 / 5.8.0, or the
+	 * plugin was uninstalled).
+	 */
+	protected function stageitCli(): ?object
+	{
+		$dir = JPATH_PLUGINS . '/console/stageit/src';
+
+		if (!class_exists('StageIt\\Plugin\\Console\\StageIt\\StageItCli', false)) {
+			if (!is_file($dir . '/StageItCli.php') || !is_file($dir . '/StepFailedException.php')) {
+				return null;
+			}
+
+			require_once $dir . '/StepFailedException.php';
+			require_once $dir . '/StageItCli.php';
+		}
+
+		$class = 'StageIt\\Plugin\\Console\\StageIt\\StageItCli';
+
+		return new $class();
+	}
+
+	protected function cliHelperMissingError(): ToolResult
+	{
+		return ToolResult::json([
+			'ok'    => false,
+			'error' => 'StageIt\'s command-line plugin (plugins/console/stageit) is missing from this site. It comes with '
+				. 'StageIt 6.4.0+ (Joomla 6) and 5.8.0+ (Joomla 5); reinstall the StageIt package to restore it.',
+		], true);
+	}
+
+	/**
+	 * Why a push must not start, and what to warn about: the checks of
+	 * `stageit:push` (AbstractStageItCommand::pushChecks()).
 	 *
-	 * @param 'Deploy'|'Sync'|'Remove'|'RestoreBackup' $op
+	 * @return array{0: string[], 1: string[]}
 	 */
-	protected function makeSteppableAjax(string $op): object
+	protected function stageitPushChecks(object $cli, bool $force, bool $noBackup): array
 	{
-		$class = 'stgAjax' . $op;
-		if (!class_exists($class, false)) {
-			throw new \RuntimeException($class . ' not loaded — call ensureStageItLoaded() first.');
+		$errors   = [];
+		$warnings = [];
+
+		if ($cli->isInsideStage()) {
+			return [['This is the staging copy. Run StageIt from the live site.'], []];
 		}
 
-		// The subclass has to inherit from the specific StageIt AJAX class,
-		// so we generate one on the fly (once per op) using eval. Doing this
-		// with anonymous classes doesn't work here because we need class_exists
-		// to succeed under a stable name if we ever wanted to reuse it, and
-		// because saveJson() is protected — an anonymous subclass would still
-		// need eval or a runtime scope override to reach it. Straight eval of
-		// a named subclass is the cleanest option and only runs once per op
-		// per request.
-		$subName = 'Steppable_' . $op;
-		if (!class_exists($subName, false)) {
-			$code = "class $subName extends $class {"
-				. "public bool \$didStep = false;"
-				. "protected function saveJson(\$skip = 0) { \$this->didStep = true; }"
-				. "}";
-			eval($code);
-		}
-		return new $subName();
-	}
-
-	/**
-	 * Snapshot vbJson state to disk, keyed by a resume token. Called when
-	 * the outer loop hits the time budget mid-operation. On the first save
-	 * pass null for $reuseToken to mint a new one; on subsequent continues
-	 * pass the existing token to overwrite in place (same token stays
-	 * valid across the whole operation lifetime).
-	 */
-	protected function saveMcpState(string $op, ?string $reuseToken = null): string
-	{
-		$token = $reuseToken !== null && preg_match('/^[a-f0-9]{32}$/', $reuseToken)
-			? $reuseToken
-			: bin2hex(random_bytes(16));
-		$file  = $this->stateFilePath($token);
-		$state = [
-			'op'       => $op,
-			'created'  => time(),
-			'action'   => \vbJson::_getVar('action'),
-			'progress' => \vbJson::_getVar('progress'),
-			'msg'      => \vbJson::_getVar('msg'),
-			'jdata'    => \vbJson::_getVar('jdata'),
-		];
-		$dir = dirname($file);
-		if (!is_dir($dir)) {
-			@mkdir($dir, 0755, true);
-		}
-		file_put_contents($file, json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-		return $token;
-	}
-
-	/**
-	 * Restore vbJson state from disk. Returns the operation name so the
-	 * caller can verify the token is being used for the same op it was
-	 * created for.
-	 */
-	protected function loadMcpState(string $token): ?array
-	{
-		if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
-			return null;
-		}
-		$file = $this->stateFilePath($token);
-		if (!is_file($file)) {
-			return null;
-		}
-		$state = json_decode((string) file_get_contents($file), true);
-		if (!is_array($state)) {
-			return null;
+		if (!$cli->stageExists()) {
+			return [['No staging copy found at ' . $cli->stageRoot() . '/.'], []];
 		}
 
-		\vbJson::_emptyVars();
-		\vbJson::_setVar('action', $state['action'] ?? '');
-		\vbJson::_setVar('progress', $state['progress'] ?? 0);
-		\vbJson::_setVar('msg', $state['msg'] ?? '');
-		if (isset($state['jdata']) && is_array($state['jdata'])) {
-			foreach ($state['jdata'] as $k => $v) {
-				\vbJson::_setJVar($k, $v);
+		if (!$cli->stageComplete()) {
+			$errors[] = 'The staging copy has no configuration.php, so it was not built completely. Rebuild it.';
+		} else {
+			$expected = \stageIt::_getStgPrefix() . $cli->livePrefix();
+			$actual   = (string) $cli->stageConfigValue('dbprefix');
+
+			if ($actual !== $expected) {
+				$errors[] = 'The staging copy uses database prefix "' . $actual . '", expected "' . $expected . '".';
 			}
 		}
-		// vbJson::_getJPost() reads via internal $post (initialised lazily from
-		// $_POST). Prime $_POST['jdata'] with the restored jdata so the next
-		// stage's _getJPost('mypos') / _getJPost('chunk') calls return the
-		// restored values.
-		$_POST['jdata'] = $state['jdata'] ?? [];
 
-		return $state;
-	}
-
-	protected function clearMcpState(string $token): void
-	{
-		if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
-			return;
+		if (!$cli->stgTables()) {
+			$errors[] = 'No ' . \stageIt::_getStgPrefix() . ' tables found in the database: the staging copy has no data to push.';
 		}
-		$file = $this->stateFilePath($token);
-		if (is_file($file)) {
-			@unlink($file);
-		}
-	}
 
-	private function stateFilePath(string $token): string
-	{
-		return JPATH_ADMINISTRATOR . '/logs/stageit_mcp_state_' . $token . '.json';
+		foreach ($cli->systemChecks() as $check) {
+			if (!$check['ok']) {
+				$errors[] = $check['label'] . ': ' . $check['detail'];
+			}
+		}
+
+		$unfinished = $cli->unfinishedOperations();
+
+		if ($unfinished) {
+			$msg = 'A previous StageIt operation did not finish (' . implode(', ', $unfinished) . ').';
+
+			if ($force) {
+				$warnings[] = $msg . ' Continuing because force was given.';
+			} else {
+				$errors[] = $msg . ' Check the StageIt log, then call again with force: true to continue anyway.';
+			}
+		}
+
+		if ($cli->stageBackupDisabled()) {
+			if ($noBackup) {
+				$warnings[] = 'Backups are switched off in the staging copy\'s StageIt options, and no_backup was given: live will NOT be backed up first.';
+			} else {
+				$errors[] = 'Backups are switched off in the staging copy\'s StageIt options, so live would not be backed up first. Turn backups on, or pass no_backup: true to push without one.';
+			}
+		}
+
+		if (!$cli->stageHasCli()) {
+			$warnings[] = 'The staging copy was built before StageIt\'s command line was installed. The push copies the stage\'s StageIt over live\'s, '
+				. 'so live will run that older StageIt afterwards, which these tools cannot drive, until StageIt is reinstalled.';
+		}
+
+		return [$errors, $warnings];
 	}
 
 	/**
-	 * Derive the safe per-call time budget. Priority order:
-	 *   1. If arg supplied and positive → clamp to (5, ini_max_execution_time - 10)
-	 *   2. Otherwise → min(25, ini_max_execution_time - 10), floor at 15
+	 * Why removing the stage must not start: the checks of `stageit:remove`
+	 * (AbstractStageItCommand::removeChecks()). A stage that has not been
+	 * pushed since it was built holds work that would be thrown away.
 	 *
-	 * ini_max_execution_time of 0 = unlimited; treat as "no ceiling from ini",
-	 * fall back to 25s default so we still return promptly to the MCP client.
+	 * @return array{0: string[], 1: string[]}
+	 */
+	protected function stageitRemoveChecks(object $cli, bool $force): array
+	{
+		$errors   = [];
+		$warnings = [];
+
+		if ($cli->isInsideStage()) {
+			return [['This is the staging copy. Run StageIt from the live site.'], []];
+		}
+
+		$tables = $cli->stgTables();
+
+		if (!is_dir($cli->stageRoot()) && !$tables) {
+			return [['No staging copy found: no ' . $cli->stageRoot() . '/ folder and no ' . \stageIt::_getStgPrefix() . ' tables.'], []];
+		}
+
+		if (is_dir($cli->stageRoot()) && !$cli->pushCompletedSinceBuild()) {
+			$push = $cli->lastPush();
+			$msg  = $push === null
+				? 'No completed push to live is recorded for this staging copy.'
+				: 'The last completed push (' . date('Y-m-d H:i:s', (int) $push['time']) . ') is older than the staging copy (built '
+					. date('Y-m-d H:i:s', (int) $cli->stageBuiltAt()) . ').';
+
+			if ($force) {
+				$warnings[] = $msg . ' Removing anyway because force was given: changes made on the stage will be lost.';
+			} else {
+				$errors[] = $msg . ' Removing it now would throw away the work on the stage. Push first (sync_stageit), or pass force: true to remove it anyway.';
+			}
+		}
+
+		return [$errors, $warnings];
+	}
+
+	/**
+	 * Derive the per-call time budget. A step is never cut short: the budget
+	 * only decides whether to START another step in this call. Each StageIt
+	 * step limits itself to the site's "speed" setting.
 	 */
 	protected function resolveTimeBudget(?int $userArg): int
 	{
@@ -298,96 +353,7 @@ trait StageItBootTrait
 		if ($userArg !== null && $userArg > 0) {
 			return max(5, min($safeMax, $userArg));
 		}
+
 		return max(15, min($safeMax, 25));
-	}
-
-	/**
-	 * Drive StageIt's state machine forward for one MCP call. The loop runs
-	 * stages until either (a) action becomes empty/'0' (operation done), or
-	 * (b) our time budget expires. Returns a normalised array describing the
-	 * outcome so the tool wrapper can compose the ToolResult.
-	 *
-	 * @param 'Deploy'|'Sync'|'Remove'|'RestoreBackup' $op
-	 * @param string $initialAction 'init' for a fresh start; any other value
-	 *                              means we're resuming and this is the action
-	 *                              already loaded by loadMcpState().
-	 * @param int $budget seconds
-	 * @return array{done: bool, action: string, progress: int, msg: string,
-	 *               stages_run: array<int,string>, elapsed: float, error?: string}
-	 */
-	protected function driveStateMachine(string $op, string $initialAction, int $budget): array
-	{
-		// Bump limits. set_time_limit(0) resets the PHP execution timer;
-		// ignore_user_abort keeps us running if the MCP client disconnects
-		// mid-chunk (better to finish the chunk cleanly than half-write state).
-		@set_time_limit(0);
-		@ignore_user_abort(true);
-
-		// vbAjax::saveJson() reads $_GET['task'] to derive the class name for
-		// its recursive chain call. We overrode saveJson so it never gets
-		// there, but stagFactor's constructor path might touch it too.
-		$_GET['task'] = $op;
-
-		if (\vbJson::_getVar('action') === '' || \vbJson::_getVar('action') === false) {
-			\vbJson::_setVar('action', $initialAction);
-		}
-
-		$ajax = null; // instantiated once we're safely inside chdir()
-
-		$stagesRun = [];
-		$startTime = microtime(true);
-		$hardStop  = $startTime + $budget;
-
-		$result = $this->withStageItCwd(function () use ($op, &$ajax, &$stagesRun, $hardStop) {
-			$ajax = $this->makeSteppableAjax($op);
-
-			while (true) {
-				$action = (string) \vbJson::_getVar('action');
-				if ($action === '' || $action === '0') {
-					// Operation complete.
-					return ['done' => true, 'reason' => 'complete'];
-				}
-				if (!method_exists($ajax, $action)) {
-					return ['done' => false, 'error' => 'Unknown stage "' . $action . '" for op ' . $op];
-				}
-				if (microtime(true) >= $hardStop) {
-					return ['done' => false, 'reason' => 'budget_reached'];
-				}
-
-				// Sync $_POST from vbJson::$vars so _getJPost('mypos'), etc.
-				// return the state values we just restored / just updated.
-				\vbJson::_jsonToPost();
-
-				try {
-					$ajax->$action();
-				} catch (\Throwable $e) {
-					return ['done' => false, 'error' => 'Exception in stage "' . $action . '": ' . $e->getMessage()];
-				}
-
-				$stagesRun[] = $action;
-
-				// If StageIt's own code recorded an error via vbJson::_error(),
-				// halt the loop and return that error.
-				$err = \vbJson::_getVar('error');
-				if (is_string($err) && $err !== '') {
-					return ['done' => false, 'error' => 'StageIt error: ' . $err];
-				}
-			}
-		});
-
-		$elapsed = round(microtime(true) - $startTime, 3);
-
-		$out = [
-			'done'       => (bool) ($result['done'] ?? false),
-			'action'     => (string) \vbJson::_getVar('action'),
-			'progress'   => (int) \vbJson::_getVar('progress'),
-			'msg'        => (string) \vbJson::_getVar('msg'),
-			'stages_run' => $stagesRun,
-			'elapsed'    => $elapsed,
-		];
-		if (!empty($result['error'])) {
-			$out['error'] = $result['error'];
-		}
-		return $out;
 	}
 }

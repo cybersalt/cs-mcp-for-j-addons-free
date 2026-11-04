@@ -38,15 +38,9 @@ final class DeployTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Start a StageIt deploy (live → staging). Copies the live filesystem into '
-			. '<docroot>/stageit/ and clones the DB into stg_<prefix>* tables, running '
-			. 'the same 6-stage flow as StageIt\'s admin UI (buildStgMap → syncStgFiles → '
-			. 'buildFileMap → copyFiles → cloneData → finaliseStage). Small sites complete '
-			. 'in one call (done=true). Larger sites return done=false + resume_token — '
-			. 'call continue_stageit_deploy({resume_token}) until done=true. Optional '
-			. 'time_budget arg (seconds; defaults to a safe value derived from '
-			. 'ini max_execution_time). Existing staging is preserved on first call and '
-			. 'then updated to match live per your overwrite policy.';
+		return 'Build a StageIt staging copy (live → <docroot>/stageit/ plus stg_ database tables), running StageIt\'s own build steps exactly as its admin Build button does. '
+			. 'Refuses to build over a staging copy that has not been pushed since it was built (that would throw its work away) and when a previous StageIt run did not finish, unless force is true. '
+			. 'Large sites take several calls: while done is false, call continue_stageit_deploy with the resume_token. Needs StageIt 6.4.0+ (Joomla 6) or 5.8.0+ (Joomla 5).';
 	}
 
 	public function getInputSchema(): array
@@ -54,10 +48,8 @@ final class DeployTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'properties' => [
-				'time_budget' => [
-					'type' => 'integer',
-					'description' => 'Max seconds this call may run before returning a resume_token. Default: min(25, ini_max_execution_time - 10). Cap: max_execution_time - 10.',
-				],
+				'time_budget' => ['type' => 'integer', 'description' => 'Seconds this call may keep starting new steps before it returns a resume_token. Default: min(25, max_execution_time - 10).'],
+				'force' => ['type' => 'boolean', 'description' => 'Rebuild even though the existing staging copy has not been pushed since it was built, or a previous run did not finish. Changes on the old stage are lost.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -67,6 +59,6 @@ final class DeployTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		return $this->runOperation('Deploy', 'start', $arguments);
+		return $this->runOperation('Deploy', 'start', $arguments, $actor);
 	}
 }

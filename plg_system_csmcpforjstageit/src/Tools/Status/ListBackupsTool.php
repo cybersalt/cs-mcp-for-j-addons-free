@@ -50,6 +50,10 @@ final class ListBackupsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		if (($refusal = $this->stageitRefusal($actor, false)) !== null) {
+			return $refusal;
+		}
+
 		if ($this->stageitAdminBase() === null) {
 			return $this->notInstalledError();
 		}
@@ -79,16 +83,25 @@ final class ListBackupsTool extends AbstractTool
 				'size_bytes' => $size,
 				'size_readable' => $this->humanSize($size),
 				'modified' => $mt ? gmdate('Y-m-d\TH:i:s\Z', $mt) : null,
+				// As StageItCli::backups(): a backup without its SQL dump can't restore the database.
+				'has_database' => is_file($path . '/sql.sql.gz') || is_file($path . '/sql.sql'),
 			];
 		}
 
 		usort($backups, static fn($a, $b) => strcmp((string) $b['modified'], (string) $a['modified']));
 
-		return ToolResult::json([
+		$out = [
 			'ok'      => true,
 			'count'   => count($backups),
 			'backups' => $backups,
-		]);
+		];
+
+		// The last completed push, which StageIt records next to the backups (stgbackups/last-push.php).
+		if ($this->ensureStageItLoaded() && ($cli = $this->stageitCli()) !== null && ($push = $cli->lastPush()) !== null) {
+			$out['last_push'] = ['time' => gmdate('Y-m-d\TH:i:s\Z', (int) $push['time']), 'source' => $push['source'] ?? null];
+		}
+
+		return ToolResult::json($out);
 	}
 
 	/**

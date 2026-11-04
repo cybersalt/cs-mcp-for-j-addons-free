@@ -50,6 +50,6 @@ final class ContinueRestoreTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		return $this->runOperation('RestoreBackup', 'continue', $arguments);
+		return $this->runOperation('RestoreBackup', 'continue', $arguments, $actor);
 	}
 }

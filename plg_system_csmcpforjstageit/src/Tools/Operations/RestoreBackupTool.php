@@ -34,12 +34,9 @@ final class RestoreBackupTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Start restoring a StageIt backup snapshot to live. DESTRUCTIVE: overwrites '
-			. 'the live filesystem + DB from the named snapshot under <docroot>/stgbackups/. '
-			. 'Required: backup_name (the folder name — use list_stageit_backups to see '
-			. 'available names). Chunked internally (buildBkMap → prepLive → restoreFiles '
-			. '→ restoreDb → finaliseRestore); may return done=false + resume_token — call '
-			. 'continue_stageit_restore until done=true. Optional time_budget.';
+		return 'Restore a StageIt backup to live. DESTRUCTIVE: replaces live\'s files and database with the named backup from <docroot>/stgbackups/ (list_stageit_backups gives the names). '
+			. 'StageIt runs a restore from inside the staging copy, so one must exist. While done is false, call continue_stageit_restore with the resume_token. Needs StageIt 6.4.0+ (Joomla 6) or 5.8.0+ (Joomla 5).'
+			. 'The final stretch (restoreFiles onwards) runs in ONE call however long it takes, because while StageIt swaps live\'s files and database the site\'s own API (and so this MCP endpoint) is briefly unreachable. If that call times out on the client side, StageIt keeps running on the server: wait, then call get_stageit_status (it may answer 404 for a short while) before doing anything else.';
 	}
 
 	public function getInputSchema(): array
@@ -48,11 +45,8 @@ final class RestoreBackupTool extends AbstractTool
 			'type' => 'object',
 			'required' => ['backup_name'],
 			'properties' => [
-				'backup_name' => [
-					'type' => 'string',
-					'description' => 'Folder name under <docroot>/stgbackups/, as returned by list_stageit_backups.',
-				],
-				'time_budget' => ['type' => 'integer'],
+				'backup_name' => ['type' => 'string', 'description' => 'Folder name under <docroot>/stgbackups/, as list_stageit_backups returns it.'],
+				'time_budget' => ['type' => 'integer', 'description' => 'Seconds this call may keep starting new steps before it returns a resume_token. Default: min(25, max_execution_time - 10).'],
 			],
 			'additionalProperties' => false,
 		];
@@ -62,6 +56,6 @@ final class RestoreBackupTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		return $this->runOperation('RestoreBackup', 'start', $arguments);
+		return $this->runOperation('RestoreBackup', 'start', $arguments, $actor);
 	}
 }

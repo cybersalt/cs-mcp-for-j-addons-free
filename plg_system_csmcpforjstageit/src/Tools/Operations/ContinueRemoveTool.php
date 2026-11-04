@@ -50,6 +50,6 @@ final class ContinueRemoveTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		return $this->runOperation('Remove', 'continue', $arguments);
+		return $this->runOperation('Remove', 'continue', $arguments, $actor);
 	}
 }
