@@ -32,8 +32,12 @@ final class CreateReleaseManagerPackageTool extends AbstractTool
 			. '"plugin", "module", "library", "template", "file", "language"), '
 			. 'extension_folder (only for plugins, e.g. "system"), is_public (1 = free download, '
 			. 'no auth gate; 0 = membership-gated), user_groups (array of Joomla user-group ids '
-			. 'allowed to download when is_public=0), state (1 published, 0 unpublished). '
-			. 'Goes through cs-release-manager\'s PackageModel so all side effects fire.';
+			. 'allowed to download when is_public=0), state (1 published, 0 unpublished), and the '
+			. 'Release Manager 1.9-1.13 fields (relink_hint, feed_key, successor_package_id, renewable '
+			. 'groups and message, group_install_limits, license_family, install_limit_message, '
+			. 'update/download/sign-up URLs, catalog_slug, catalog_metadata); a field the site\'s Release '
+			. 'Manager does not have yet is skipped and listed. Goes through cs-release-manager\'s '
+			. 'PackageModel so all side effects fire, then reads the new row back.';
 	}
 
 	public function getInputSchema(): array
@@ -55,7 +59,7 @@ final class CreateReleaseManagerPackageTool extends AbstractTool
 				'denial_message'    => ['type' => 'string'],
 				'renewal_url'       => ['type' => 'string'],
 				'state'             => ['type' => 'integer', 'enum' => [0, 1]],
-			],
+			] + $this->csrmPackageFieldsSchema(),
 			'additionalProperties' => false,
 		];
 	}
@@ -95,6 +99,14 @@ final class CreateReleaseManagerPackageTool extends AbstractTool
 			'state'             => isset($arguments['state']) ? (int) $arguments['state'] : 1,
 		];
 
+		$extra = $this->csrmPackageFields($arguments, 0);
+
+		if ($extra['errors'] !== []) {
+			return ToolResult::json(['ok' => false, 'errors' => $extra['errors'], 'note' => 'Nothing was created.'], true);
+		}
+
+		$data += $extra['data'];
+
 		$model  = $this->csrmModel('Package');
 		$result = $this->saveAdminModel($model, $data);
 
@@ -102,8 +114,10 @@ final class CreateReleaseManagerPackageTool extends AbstractTool
 			return ToolResult::error('cs-release-manager rejected the package: ' . ($result['error'] ?: 'unknown error'));
 		}
 
+		$verify = $this->csrmVerifyPackage($result['id'], $extra['data']);
+
 		$response = [
-			'ok'                => true,
+			'ok'                => $verify['mismatched'] === [],
 			'id'                => $result['id'],
 			'title'             => $title,
 			'alias'             => $alias,
@@ -111,9 +125,22 @@ final class CreateReleaseManagerPackageTool extends AbstractTool
 			'is_public'         => $data['is_public'],
 			'edit_url'          => 'index.php?option=com_csreleasemanager&task=package.edit&id=' . $result['id'],
 		];
+		if ($extra['data'] !== []) {
+			$response['fields_set'] = array_keys($extra['data']);
+		}
+		if ($extra['skipped'] !== []) {
+			$response['fields_skipped'] = $extra['skipped'];
+			$response['skipped_note']   = 'This site\'s Release Manager has no column for these fields yet (they arrived in 1.9-1.13).';
+		}
+		if ($verify['cleared_directly'] !== []) {
+			$response['cleared_directly'] = $verify['cleared_directly'];
+		}
+		if ($verify['mismatched'] !== []) {
+			$response['not_stored_as_sent'] = $verify['mismatched'];
+		}
 		if (!$result['ok'] && $result['error'] !== '') {
 			$response['post_save_warning'] = $result['error'];
 		}
-		return ToolResult::json($response);
+		return ToolResult::json($response, $verify['mismatched'] !== []);
 	}
 }

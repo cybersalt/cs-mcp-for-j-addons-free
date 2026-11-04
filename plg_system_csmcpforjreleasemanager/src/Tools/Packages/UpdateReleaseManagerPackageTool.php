@@ -33,10 +33,12 @@ final class UpdateReleaseManagerPackageTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Update an existing cs-release-manager Package. Required: id. Only fields you '
-			. 'supply are changed. Pass user_groups[] (array of ids) to replace the membership '
-			. 'list. NOTE: renaming extension_element triggers cs-release-manager\'s on-disk '
-			. 'downloads-folder rename — Version files at /media/com_csreleasemanager/downloads/'
-			. '{old_element}/ move to /{new_element}/ automatically.';
+			. 'supply are changed, including the Release Manager 1.9-1.13 fields (relink_hint, feed_key, '
+			. 'successor_package_id, renewable groups and message, group_install_limits, license_family, '
+			. 'install_limit_message, update/download/sign-up URLs, catalog_slug, catalog_metadata); a field '
+			. 'the site\'s Release Manager does not have yet is skipped and listed. Every changed field is '
+			. 'read back and reported. Pass user_groups[] to replace the membership list. NOTE: renaming '
+			. 'extension_element moves /media/com_csreleasemanager/downloads/{old}/ to /{new}/.';
 	}
 
 	public function getInputSchema(): array
@@ -59,7 +61,7 @@ final class UpdateReleaseManagerPackageTool extends AbstractTool
 				'denial_message'    => ['type' => 'string'],
 				'renewal_url'       => ['type' => 'string'],
 				'state'             => ['type' => 'integer', 'enum' => [0, 1, -2]],
-			],
+			] + $this->csrmPackageFieldsSchema(),
 			'additionalProperties' => false,
 		];
 	}
@@ -80,6 +82,12 @@ final class UpdateReleaseManagerPackageTool extends AbstractTool
 			return ToolResult::error('Package ' . $id . ' not found.');
 		}
 
+		$extra = $this->csrmPackageFields($arguments, $id);
+
+		if ($extra['errors'] !== []) {
+			return ToolResult::json(['ok' => false, 'id' => $id, 'errors' => $extra['errors'], 'note' => 'Nothing was saved.'], true);
+		}
+
 		$data = ['id' => $id];
 		foreach (self::UPDATABLE as $key) {
 			if (array_key_exists($key, $arguments)) {
@@ -88,6 +96,18 @@ final class UpdateReleaseManagerPackageTool extends AbstractTool
 		}
 		if (isset($arguments['user_groups']) && is_array($arguments['user_groups'])) {
 			$data['user_groups'] = json_encode(array_map('intval', $arguments['user_groups']));
+		}
+		$data += $extra['data'];
+
+		// PackageModel::save() reads "install_limit posted without group_install_limits" as
+		// the admin form's repeatable subform with every row removed, and empties the
+		// per-group limits. An MCP call that only changes install_limit must not do that,
+		// so the stored limits are sent back unchanged (1.11.3 and earlier wiped them).
+		$preserved = false;
+		if (array_key_exists('install_limit', $data) && !array_key_exists('group_install_limits', $data)
+			&& $this->csrmHasColumn('group_install_limits')) {
+			$data['group_install_limits'] = $this->csrmStoredColumn($id, 'group_install_limits');
+			$preserved = true;
 		}
 
 		$result = $this->saveAdminModel($model, $data);
@@ -98,14 +118,30 @@ final class UpdateReleaseManagerPackageTool extends AbstractTool
 			}
 		}
 
+		$changed = array_values(array_diff(array_keys($data), ['id']));
+		$verify  = $this->csrmVerifyPackage($id, array_intersect_key($data, array_flip(array_merge(self::CSRM_PACKAGE_FIELDS, ['user_groups']))));
+
 		$response = [
-			'ok'             => true,
+			'ok'             => $verify['mismatched'] === [],
 			'id'             => $id,
-			'fields_changed' => array_values(array_diff(array_keys($data), ['id'])),
+			'fields_changed' => $preserved ? array_values(array_diff($changed, ['group_install_limits'])) : $changed,
 		];
+		if ($extra['skipped'] !== []) {
+			$response['fields_skipped'] = $extra['skipped'];
+			$response['skipped_note']   = 'This site\'s Release Manager has no column for these fields yet (they arrived in 1.9-1.13). Update Release Manager, then set them again.';
+		}
+		if ($preserved) {
+			$response['group_install_limits_kept'] = 'install_limit was changed on its own, so the stored per-group limits were sent back unchanged.';
+		}
+		if ($verify['cleared_directly'] !== []) {
+			$response['cleared_directly'] = $verify['cleared_directly'];
+		}
+		if ($verify['mismatched'] !== []) {
+			$response['not_stored_as_sent'] = $verify['mismatched'];
+		}
 		if (!$result['ok'] && $result['error'] !== '') {
 			$response['post_save_warning'] = $result['error'];
 		}
-		return ToolResult::json($response);
+		return ToolResult::json($response, $verify['mismatched'] !== []);
 	}
 }

@@ -1,7 +1,10 @@
 # MCP for Cybersalt Release Manager — Changelog
 
-## 📝 Unreleased (ships with this add-on's next release)
+## 🚀 Version 1.12.0 (unreleased, in test)
 
+- ✨ **The package tools can set every package field Release Manager has.** `create_release_manager_package` and `update_release_manager_package` now take the 13 fields added in Release Manager 1.9 to 1.13: the account link location (`relink_hint`), feed key, successor package, renewable groups and their message, site limits by group, licence family, the over-the-limit message, the update XML, download and sign-up URLs, the catalog slug and the catalog metadata. Before, `get_release_manager_package` showed them but the write tools ignored them and still answered "ok". They're checked the way Release Manager's own edit screen checks them: a feed key must be unique, a successor must be another existing package, user groups must exist, URLs must be http(s), the catalog metadata must be a JSON object, and the messages are cleaned the same way. On a site whose Release Manager is older than a field, the field is skipped and listed instead of failing the call.
+- 🐛 **Changing only `install_limit` no longer deletes the per-group site limits.** Release Manager's save treats a form without the site-limits table as "every row removed", so an update that only set `install_limit` emptied the limits for every group. The stored limits are now sent back with it.
+- 🔍 **Every field a package tool sets is read back from the database**, and anything stored differently from what was sent is reported. Clearing the catalog slug works too: Release Manager's own save leaves the old slug in place when it's emptied, so the tool clears it.
 - 📝 **Uses the core extension's current name.** The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.
 
 ## 🚀 Version 1.11.3 (October 20, 2026)
