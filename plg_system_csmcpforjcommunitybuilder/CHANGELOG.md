@@ -1,7 +1,8 @@
 # MCP for Community Builder — Changelog
 
-## 📝 Unreleased (ships with this add-on's next release)
+## 🚀 Version 1.0.2 (November 4, 2026)
 
+- 📄 **The package now includes LICENSE.txt.**
 - 📝 **Uses the core extension's current name.** The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.
 
 ## 🚀 Version 1.0.1 (October 20, 2026)
