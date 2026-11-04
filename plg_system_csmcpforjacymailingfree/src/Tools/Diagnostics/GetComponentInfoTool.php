@@ -68,6 +68,8 @@ final class GetComponentInfoTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->acyRequire($actor);
+
 		if ($this->acyAdminBase() === null) {
 			return $this->notInstalledError();
 		}

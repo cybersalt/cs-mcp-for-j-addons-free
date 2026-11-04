@@ -2,8 +2,14 @@
 <h1>📋 MCP for AcyMailing — Changelog</h1>
 <p><code>plg_system_csmcpforjacymailingfree</code>. Versions are independent of every other
 add-on in this repo and of cs-mcp-for-j core.</p>
-<h2>📝 Unreleased (ships with this add-on's next release)</h2>
+<h2>🚀 Version 1.0.3 (November 4, 2026)</h2>
 <ul>
+<li>🔒 <strong>Every tool now applies AcyMailing's own permissions.</strong> The AI can no longer do more than the Joomla account it acts for could do in AcyMailing itself. Each tool needs AcyMailing's Access Administration Interface permission and access to the page it belongs to, such as Subscribers, Lists or Emails. Before this, any account with MCP access could use every tool.</li>
+<li>🔒 <strong><code>set_acym_config</code> can't change the edition or licence settings by using different capitals.</strong> The block on <code>level</code> and the licence settings could be avoided by writing a name like <code>LEVEL</code> with <code>create: true</code>. Names must now be plain ASCII, and a different-case copy of a real setting is refused.</li>
+<li>🔒 <strong>More secrets are hidden.</strong> The DKIM private key and passphrase and the stored sending-method settings no longer appear in <code>get_acym_config</code> or <code>query_acym_table</code>, and can't be written.</li>
+<li>🔒 <strong>Settings that affect the server are off limits.</strong> <code>sendmail_path</code>, <code>cron_savepath</code>, <code>uploadfolder</code>, <code>allowed_files</code> and <code>php_overrides</code> can't be changed through MCP. Access control rows (<code>acl_*</code>) and the SMTP and bounce host, port and username need a Super User, because a changed SMTP host would be handed the stored password.</li>
+<li>⚠️ <strong>Check this after updating if a non-Super User connects an AI app.</strong> AcyMailing lets only Super Users into its pages by default, so that account now gets a clear refusal until a Super User allows its group in AcyMailing, under Configuration, Security, Access control.</li>
+<li>📄 <strong>The package now includes LICENSE.txt.</strong> The manifest already pointed to it.</li>
 <li>📝 <strong>Uses the core extension's current name.</strong> The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.</li>
 </ul>
 <h2>🚀 Version 1.0.2 (October 20, 2026)</h2>

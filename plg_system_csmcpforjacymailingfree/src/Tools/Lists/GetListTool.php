@@ -43,6 +43,8 @@ final class GetListTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->acyRequire($actor, 'lists');
+
 		if ($this->acyAdminBase() === null) {
 			return $this->notInstalledError();
 		}

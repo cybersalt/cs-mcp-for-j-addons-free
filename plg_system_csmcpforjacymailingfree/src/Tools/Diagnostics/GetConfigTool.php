@@ -51,6 +51,8 @@ final class GetConfigTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->acyRequire($actor, 'configuration');
+
 		if ($this->acyAdminBase() === null) {
 			return $this->notInstalledError();
 		}
@@ -77,7 +79,7 @@ final class GetConfigTool extends AbstractTool
 			}
 
 			$secret  = $this->acyIsSecretName($name);
-			$blocked = $secret || \in_array($name, self::ACYM_CONFIG_WRITE_BLOCKED, true);
+			$blocked = $secret || $this->acyIsWriteBlocked($name);
 
 			$out[$name] = [
 				'value'    => $secret ? ['redacted' => true, 'set' => $value !== ''] : $value,

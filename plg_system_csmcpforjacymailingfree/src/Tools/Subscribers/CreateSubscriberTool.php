@@ -73,6 +73,8 @@ final class CreateSubscriberTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->acyRequire($actor, 'users');
+
 		if ($this->acyAdminBase() === null) {
 			return $this->notInstalledError();
 		}

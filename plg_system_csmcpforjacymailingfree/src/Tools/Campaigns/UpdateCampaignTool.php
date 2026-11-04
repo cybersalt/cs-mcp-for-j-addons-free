@@ -61,6 +61,8 @@ final class UpdateCampaignTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->acyRequire($actor, 'campaigns');
+
 		if ($this->acyAdminBase() === null) {
 			return $this->notInstalledError();
 		}

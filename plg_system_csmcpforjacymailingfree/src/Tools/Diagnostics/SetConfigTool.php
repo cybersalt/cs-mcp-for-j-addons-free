@@ -39,7 +39,14 @@ use Joomla\CMS\User\User;
  *    Essential; more than one batch per cron needs Enterprise. On Starter the
  *    vendor's own Configuration save even resets queue_type to manual
  *    (Controllers/Configuration/Listing.php::resetQueueProcess).
+ *  - What runs on or is written to the server (sendmail command, report path,
+ *    upload folder and file types, PHP overrides): never via MCP.
+ *  - Who may use AcyMailing (acl_*) and where mail is sent with the stored
+ *    password (SMTP/bounce host, port, username): Super Users only.
  *  - Keys that do not exist yet, unless create: true.
+ *  - Names that differ from a real key only in case or by non-ASCII letters.
+ *    The column's collation treats them as that key, so `LEVEL` or `lével`
+ *    would overwrite `level` while passing a case-sensitive check.
  */
 final class SetConfigTool extends AbstractTool
 {
@@ -65,10 +72,10 @@ final class SetConfigTool extends AbstractTool
 		return 'Change named AcyMailing settings via the vendor\'s ConfigurationClass::saveConfig() (a per-key '
 			. 'REPLACE INTO - it does not truncate the table). Pass `values` as {name: value}. Refused: edition '
 			. 'and licence state (writing `level` would unlock paid features without a licence), every '
-			. 'credential, cron activation keys (saving them makes AcyMailing call acymailing.com), and values the '
+			. 'credential, cron activation keys (saving them makes AcyMailing call acymailing.com), settings that control what runs on or is written to the server (sendmail_path, cron_savepath, uploadfolder, allowed_files, php_overrides), and values the '
 			. 'vendor only allows on a higher edition (non-manual queue_type, multilingual, captcha, hiding the '
 			. 'built-by footer need Essential; queue_batch_auto > 1 needs Enterprise). Unknown keys are refused '
-			. 'unless create: true. The vendor strips HTML tags from every value. After writing, the tool re-reads '
+			. 'unless create: true. acl_* and the SMTP and bounce host, port and username need a Super User. The vendor strips HTML tags from every value. After writing, the tool re-reads '
 			. 'the table and proves that no other setting changed. dry_run: true shows what would be written.';
 	}
 
@@ -90,6 +97,8 @@ final class SetConfigTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->acyRequire($actor, 'configuration');
+
 		if ($this->acyAdminBase() === null) {
 			return $this->notInstalledError();
 		}
@@ -104,6 +113,8 @@ final class SetConfigTool extends AbstractTool
 
 		$create  = (bool) ($arguments['create'] ?? false);
 		$before  = $this->acyConfigAll();
+		$byLower = array_change_key_case(array_combine(array_keys($before), array_keys($before)), CASE_LOWER);
+		$isSuper = $actor->authorise('core.admin');
 		$level   = $this->acyLevel();
 		$refused = [];
 		$write   = [];
@@ -123,12 +134,24 @@ final class SetConfigTool extends AbstractTool
 			}
 			$value = (string) $value;
 
-			if (\in_array($key, self::ACYM_CONFIG_WRITE_BLOCKED, true)) {
+			if (preg_match('/^[A-Za-z0-9_-]+$/', $key) !== 1) {
+				$refused[$key] = 'setting names are plain ASCII letters, digits, _ and -';
+				continue;
+			}
+			if ($this->acyIsWriteBlocked($key)) {
 				$refused[$key] = 'edition, licence, cron or bookkeeping state - never written through MCP';
 				continue;
 			}
 			if ($this->acyIsSecretName($key)) {
 				$refused[$key] = 'credential-shaped key - never written through MCP';
+				continue;
+			}
+			if (!$isSuper && (str_starts_with(strtolower($key), 'acl_') || \in_array(strtolower($key), self::ACYM_CONFIG_SUPER_USER_ONLY, true))) {
+				$refused[$key] = 'only a Super User may change who can use AcyMailing or where it sends mail with the stored password';
+				continue;
+			}
+			if (!array_key_exists($key, $before) && isset($byLower[strtolower($key)])) {
+				$refused[$key] = 'this is the existing setting "' . $byLower[strtolower($key)] . '" in a different case; use that exact name';
 				continue;
 			}
 			if (!array_key_exists($key, $before) && !$create) {

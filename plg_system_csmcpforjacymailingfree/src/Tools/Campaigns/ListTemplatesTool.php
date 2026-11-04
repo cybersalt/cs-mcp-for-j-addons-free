@@ -56,6 +56,8 @@ final class ListTemplatesTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->acyRequire($actor, 'mails', 'campaigns');
+
 		if ($this->acyAdminBase() === null) {
 			return $this->notInstalledError();
 		}

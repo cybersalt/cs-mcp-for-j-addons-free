@@ -3,8 +3,14 @@
 `plg_system_csmcpforjacymailingfree`. Versions are independent of every other
 add-on in this repo and of cs-mcp-for-j core.
 
-## 📝 Unreleased (ships with this add-on's next release)
+## 🚀 Version 1.0.3 (November 4, 2026)
 
+- 🔒 **Every tool now applies AcyMailing's own permissions.** The AI can no longer do more than the Joomla account it acts for could do in AcyMailing itself. Each tool needs AcyMailing's Access Administration Interface permission and access to the page it belongs to, such as Subscribers, Lists or Emails. Before this, any account with MCP access could use every tool.
+- 🔒 **`set_acym_config` can't change the edition or licence settings by using different capitals.** The block on `level` and the licence settings could be avoided by writing a name like `LEVEL` with `create: true`. Names must now be plain ASCII, and a different-case copy of a real setting is refused.
+- 🔒 **More secrets are hidden.** The DKIM private key and passphrase and the stored sending-method settings no longer appear in `get_acym_config` or `query_acym_table`, and can't be written.
+- 🔒 **Settings that affect the server are off limits.** `sendmail_path`, `cron_savepath`, `uploadfolder`, `allowed_files` and `php_overrides` can't be changed through MCP. Access control rows (`acl_*`) and the SMTP and bounce host, port and username need a Super User, because a changed SMTP host would be handed the stored password.
+- ⚠️ **Check this after updating if a non-Super User connects an AI app.** AcyMailing lets only Super Users into its pages by default, so that account now gets a clear refusal until a Super User allows its group in AcyMailing, under Configuration, Security, Access control.
+- 📄 **The package now includes LICENSE.txt.** The manifest already pointed to it.
 - 📝 **Uses the core extension's current name.** The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.
 
 ## 🚀 Version 1.0.2 (October 20, 2026)

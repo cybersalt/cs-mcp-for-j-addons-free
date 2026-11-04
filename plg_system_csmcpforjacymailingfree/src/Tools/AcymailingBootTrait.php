@@ -12,8 +12,10 @@ namespace Cybersalt\Plugin\System\Csmcpforjacymailingfree\Tools;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
+use Joomla\CMS\Access\Access;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Uri\Uri;
+use Joomla\CMS\User\User;
 
 /**
  * Shared helpers for every AcyMailing tool in the free (Starter) add-on.
@@ -105,6 +107,35 @@ trait AcymailingBootTrait
 		'active_cron', 'cron_security', 'cron_key',
 		// Runtime bookkeeping written by the cron, not settings.
 		'cron_last', 'cron_next', 'cron_fromip', 'cron_report',
+		// What runs on, and is written to, the server: the sendmail command, the
+		// cron report's path, the upload folder and file types, PHP layout overrides.
+		'sendmail_path', 'cron_savepath', 'uploadfolder', 'allowed_files', 'php_overrides',
+		// JSON holding each sending method's credentials.
+		'sending_method_list', 'sending_method_list_by_list',
+	];
+
+	/**
+	 * Super Users only: who may use AcyMailing, and where it sends mail with the
+	 * stored password (a changed SMTP host would be handed that password).
+	 */
+	protected const ACYM_CONFIG_SUPER_USER_ONLY = [
+		'smtp_host', 'smtp_port', 'smtp_secured', 'smtp_username', 'amazon_host', 'amazon_username',
+		'bounce_server', 'bounce_port', 'bounce_username',
+	];
+
+	/** The ACL page behind each table; anything not named needs Configuration. */
+	protected const ACYM_TABLE_AREAS = [
+		'user' => ['users'], 'user_has_field' => ['users'], 'user_has_list' => ['users'], 'history' => ['users'],
+		'list' => ['lists'], 'tag' => ['lists', 'campaigns'],
+		'campaign' => ['campaigns'], 'mail_has_list' => ['campaigns'], 'mail_archive' => ['campaigns'],
+		'followup' => ['campaigns'], 'followup_has_mail' => ['campaigns'],
+		'mail' => ['campaigns', 'mails'], 'custom_zone' => ['campaigns', 'mails'], 'mail_override' => ['override'],
+		'mail_stat' => ['stats'], 'mail_stat_detail' => ['stats'], 'url' => ['stats'], 'url_click' => ['stats'], 'user_stat' => ['stats'],
+		'queue' => ['queue'], 'segment' => ['segments'], 'field' => ['fields'], 'form' => ['forms'],
+		'automation' => ['automation'], 'step' => ['automation'], 'action' => ['automation'], 'condition' => ['automation'],
+		'scenario' => ['scenarios'], 'scenario_history_line' => ['scenarios'], 'scenario_process' => ['scenarios'],
+		'scenario_queue' => ['scenarios'], 'scenario_step' => ['scenarios'],
+		'mailbox_action' => ['bounces'], 'rule' => ['bounces'], 'plugin' => ['plugins'],
 	];
 
 	private static array $acyState = [];
@@ -250,6 +281,81 @@ trait AcymailingBootTrait
 		return ['starter' => 0, 'essential' => 1, 'enterprise' => 2][$level] ?? -1;
 	}
 
+	// ------------------------------------------------------------- permissions
+
+	/** Joomla's Super Users group, which AcyMailing always lets in (ACYM_ADMIN_GROUP). */
+	private const ACY_ADMIN_GROUP = 8;
+
+	/** AcyMailing's ACL pages (acym_getPagesForAcl) => the name its Configuration screen shows. */
+	private const ACY_AREA_LABELS = [
+		'automation'    => 'Automation',
+		'bounces'       => 'Mailbox actions',
+		'campaigns'     => 'Emails',
+		'configuration' => 'Configuration',
+		'fields'        => 'Custom fields',
+		'forms'         => 'Subscription forms',
+		'lists'         => 'Lists',
+		'mails'         => 'Templates',
+		'override'      => 'Emails override',
+		'plugins'       => 'Add-ons',
+		'queue'         => 'Queue',
+		'scenarios'     => 'Scenario',
+		'segments'      => 'Segments',
+		'stats'         => 'Statistics',
+		'users'         => 'Subscribers',
+	];
+
+	/**
+	 * Refuse unless the account could do this in AcyMailing's own back end: the
+	 * AI must never do more than the Joomla account it acts for.
+	 *
+	 * Two gates, the same two the back end has. core.manage on com_acym
+	 * (back/acym.php) to reach AcyMailing at all, then the ACL page behind each
+	 * controller (AcymController::call -> acym_isAllowed): the acl_<page> config
+	 * row is "all" or a comma list of Joomla groups, and Super Users always pass.
+	 * Any one of $areas is enough; none means core.manage alone.
+	 *
+	 * acym_isAllowed() is not called directly because it reads the session's
+	 * user and memoised config. This checks $actor against the live row.
+	 */
+	protected function acyRequire(User $actor, string ...$areas): void
+	{
+		// Each tool reports a missing AcyMailing with its own clearer error.
+		if ($this->acyAdminBase() === null) {
+			return;
+		}
+
+		if (!$actor->authorise('core.manage', 'com_acym') && !$actor->authorise('core.admin', 'com_acym')) {
+			throw new \RuntimeException('Refused: the Joomla account this AI app acts for does not have AcyMailing\'s "Access Administration Interface" permission (core.manage). MCP for J never lets the AI do more than that account could do in AcyMailing itself. A Super User can grant it in AcyMailing\'s Options, on the Permissions tab.');
+		}
+
+		if ($areas === [] || $actor->authorise('core.admin')) {
+			return;
+		}
+
+		$config = $this->acyConfigAll();
+		$groups = Access::getGroupsByUser((int) $actor->id);
+
+		foreach ($areas as $area) {
+			$allowed = (string) ($config['acl_' . $area] ?? '');
+
+			if ($allowed === 'all') {
+				return;
+			}
+
+			$allowed   = array_map('intval', explode(',', $allowed));
+			$allowed[] = self::ACY_ADMIN_GROUP;
+
+			if (array_intersect($groups, $allowed) !== []) {
+				return;
+			}
+		}
+
+		$labels = array_map(static fn (string $a): string => self::ACY_AREA_LABELS[$a] ?? $a, $areas);
+
+		throw new \RuntimeException('Refused: the Joomla account this AI app acts for has no access to AcyMailing\'s ' . implode(' or ', $labels) . ' page. MCP for J never lets the AI do more than that account could do in AcyMailing itself. A Super User can allow its group in AcyMailing, under Configuration, Security, Access control.');
+	}
+
 	// ---------------------------------------------------------------- tables
 
 	protected function acyTable(string $short): string
@@ -309,7 +415,17 @@ trait AcymailingBootTrait
 	/** Does this config key (or column name) hold a credential? */
 	protected function acyIsSecretName(string $name): bool
 	{
-		return (bool) preg_match('/(password|passwd|secret|token|apikey|api_key|_key$|^key$|license|oauth|credential|client_secret)/i', $name);
+		return (bool) preg_match('/(password|passwd|passphrase|secret|token|apikey|api_key|_key$|^key$|license|oauth|credential|dkim_private|sending_method_list)/i', $name);
+	}
+
+	/**
+	 * Is this key off limits to set_acym_config? Compared in lower case because
+	 * #__acym_configuration.name uses a case-insensitive collation: REPLACE INTO
+	 * with "LEVEL" hits the `level` row.
+	 */
+	protected function acyIsWriteBlocked(string $name): bool
+	{
+		return \in_array(strtolower($name), array_map('strtolower', self::ACYM_CONFIG_WRITE_BLOCKED), true);
 	}
 
 	/** Should require_confirmation gate the recipient set? */

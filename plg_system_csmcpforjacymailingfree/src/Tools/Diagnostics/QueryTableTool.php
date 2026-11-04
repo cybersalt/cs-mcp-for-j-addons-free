@@ -86,6 +86,8 @@ final class QueryTableTool extends AbstractTool
 		if (!\in_array($table, self::ACYM_TABLES, true)) {
 			return ToolResult::error('Unknown table "' . $table . '". Allowed: ' . implode(', ', self::ACYM_TABLES) . '.');
 		}
+		$this->acyRequire($actor, ...(self::ACYM_TABLE_AREAS[$table] ?? ['configuration']));
+
 		if (!$this->acyTableExists($table)) {
 			return ToolResult::error('Table #__acym_' . $table . ' does not exist on this install (mail_stat_detail is AcyMailing 11+ only).');
 		}
