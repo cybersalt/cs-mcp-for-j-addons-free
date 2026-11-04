@@ -1,5 +1,12 @@
 # MCP for JComments — Changelog
 
+## 🚀 Version 1.0.1 (unreleased, in test)
+
+- 🐛 **`get_jcomments_comment` now says correctly whether the author is subscribed to the article.** It
+  read a field on the comment that JComments' own form never fills in, so it always said "not
+  subscribed", even for authors who ticked "Notify me of follow-up comments". It now checks JComments'
+  subscription list for the author (by account, or by email for a guest).
+
 ## 🚀 Version 1.0.0 (October 29, 2026)
 
 First release. 15 tools for **JComments** (`com_jcomments`, the exstreme/Jcomments-4 line for Joomla 4, 5

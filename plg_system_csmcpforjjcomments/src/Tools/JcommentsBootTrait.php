@@ -468,7 +468,10 @@ trait JcommentsBootTrait
 			$out['path']        = (string) $row['path'];
 			$out['lang']        = (string) $row['lang'];
 			$out['votes']       = ['good' => (int) $row['isgood'], 'poor' => (int) $row['ispoor']];
-			$out['subscribed']  = (int) $row['subscribe'] === 1;
+			// The comment's own `subscribe` column is never written by JComments' form
+			// (site/jcomments.ajax.php:483-555 subscribes from the posted value), so ask
+			// the subscriptions table whether the author follows this item.
+			$out['subscribed']  = $this->jcAuthorSubscribed($row);
 			$out['source']      = (string) $row['source'];
 			$out['object']['link'] = $obj['link'] ?? null;
 			$out['object']['objects_row_exists'] = (bool) ($obj['cached'] ?? false);
@@ -529,6 +532,30 @@ trait JcommentsBootTrait
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Does the comment's author have a published subscription to the item?
+	 * Matched by user id for a registered author, by email for a guest.
+	 */
+	protected function jcAuthorSubscribed(array $row): ?bool
+	{
+		if (!$this->jcTableExists('_subscriptions')) {
+			return null;
+		}
+
+		$db  = $this->db;
+		$who = (int) $row['userid'] > 0
+			? 'userid = ' . (int) $row['userid']
+			: (trim((string) $row['email']) !== '' ? 'email = ' . $db->quote((string) $row['email']) : null);
+
+		if ($who === null) {
+			return false;
+		}
+
+		return $this->jcCount('_subscriptions', 'object_id = ' . (int) $row['object_id']
+			. ' AND object_group = ' . $db->quote((string) $row['object_group'])
+			. ' AND published = 1 AND ' . $who) > 0;
 	}
 
 	/** True when someone other than the actor has the comment open in the editor (site/classes/acl.php isLocked()). */
