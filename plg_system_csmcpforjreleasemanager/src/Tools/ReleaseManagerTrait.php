@@ -13,6 +13,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Component\ComponentHelper;
+use Joomla\CMS\User\User;
 
 /**
  * Shared helpers for cs-release-manager MCP tools.
@@ -20,15 +21,17 @@ use Joomla\CMS\Component\ComponentHelper;
  * Every release_manager_* tool starts by confirming com_csreleasemanager is installed
  * AND enabled before doing anything else. Without that check, tools throw
  * unhelpful class-not-found errors when the add-on is installed on a site
- * that doesn't run cs-release-manager.
+ * that doesn't run cs-release-manager. It then applies Release Manager's own
+ * permissions to the account the AI acts for, as its admin screens do.
  */
 trait ReleaseManagerTrait
 {
 	/**
-	 * Returns null if cs-release-manager is available, or a ToolResult::error
-	 * the calling tool can return verbatim if it's missing.
+	 * Returns null if cs-release-manager is available and the account has
+	 * core.manage plus every action passed, or a ToolResult::error the calling
+	 * tool can return verbatim.
 	 */
-	private function requireReleaseManager(): ?ToolResult
+	private function requireReleaseManager(User $actor, string ...$actions): ?ToolResult
 	{
 		if (!ComponentHelper::isEnabled('com_csreleasemanager')) {
 			return ToolResult::error(
@@ -37,6 +40,22 @@ trait ReleaseManagerTrait
 				. 'cs-release-manager.'
 			);
 		}
+
+		$labels = [
+			'core.manage'     => 'Access Administration Interface',
+			'core.create'     => 'Create',
+			'core.edit'       => 'Edit',
+			'core.edit.state' => 'Edit State',
+			'core.delete'     => 'Delete',
+		];
+
+		foreach (array_unique(array_merge(['core.manage'], array_filter($actions))) as $required) {
+			if (!$actor->authorise($required, 'com_csreleasemanager')) {
+				return ToolResult::error('Refused: the Joomla account this AI app acts for does not have Release Manager\'s "' . $labels[$required] . '" permission (' . $required . '). '
+					. 'MCP for J never lets the AI do more than that account could do in Release Manager itself. A Super User can grant it in Release Manager\'s Options, on the Permissions tab.');
+			}
+		}
+
 		return null;
 	}
 

@@ -68,7 +68,7 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		if ($refusal = $this->requireReleaseManager()) {
+		if ($refusal = $this->requireReleaseManager($actor, 'core.create', array_key_exists('state', $arguments) ? 'core.edit.state' : '')) {
 			return $refusal;
 		}
 

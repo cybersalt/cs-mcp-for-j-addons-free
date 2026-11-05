@@ -72,7 +72,7 @@ final class UpdateReleaseManagerInstallationTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		if ($refusal = $this->requireReleaseManager()) {
+		if ($refusal = $this->requireReleaseManager($actor, 'core.edit')) {
 			return $refusal;
 		}
 
