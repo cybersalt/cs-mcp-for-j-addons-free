@@ -14,6 +14,8 @@ namespace Cybersalt\Plugin\System\Csmcpforjcommunitybuilder\Tools;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Cybersalt\Plugin\System\Csmcpforjcommunitybuilder\Support\CbMailGuard;
 use Cybersalt\Plugin\System\Csmcpforjcommunitybuilder\Support\CbRuntime;
+use CBLib\Input\Get;
+use CBLib\Registry\GetterInterface;
 use Joomla\CMS\Application\AdministratorApplication;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Uri\Uri;
@@ -177,6 +179,9 @@ trait CommunitybuilderBootTrait
 
 	/** CB's multi-value separator. */
 	private const CB_MULTI_SEPARATOR = '|*|';
+
+	/** Field types that hold free text, which CB's save filters. */
+	private const CB_TEXT_TYPES = ['text', 'textarea', 'editorta', 'webaddress', 'color', 'predefined', 'tag'];
 
 	private static ?bool $cbInstalledCache = null;
 
@@ -875,5 +880,38 @@ trait CommunitybuilderBootTrait
 		}
 
 		return $row;
+	}
+
+	/**
+	 * Applies CB's own filter to member field values, as its save does (`cbGetParam()`,
+	 * `EditorField::prepareFieldDataSave()`): HTML editor fields are cleaned and the rest may
+	 * not hold tags. CB's filter needs its library, so call this inside cbRun().
+	 *
+	 * @param  array<string,string>                    $store  column => value
+	 * @param  array<string,array{name:string,type:string}> $fields column => the field it belongs to
+	 * @return array{store:array<string,string>,filtered:string[],problems:array<int,array{field:string,error:string}>}
+	 */
+	protected function cbCleanFieldText(array $store, array $fields): array
+	{
+		$filtered = [];
+		$problems = [];
+
+		foreach ($fields as $col => $field) {
+			$value = (string) $store[$col];
+
+			if ($field['type'] === 'editorta') {
+				$clean = (string) Get::clean($value, GetterInterface::HTML);
+
+				if ($clean !== $value) {
+					$filtered[] = $field['name'];
+				}
+
+				$store[$col] = $clean;
+			} elseif (trim((string) Get::clean($value, GetterInterface::STRING)) !== trim($value)) {
+				$problems[] = ['field' => $field['name'], 'error' => 'It contains HTML tags or something that reads as one, which Community Builder does not allow in this field. Send it as plain text.'];
+			}
+		}
+
+		return ['store' => $store, 'filtered' => $filtered, 'problems' => $problems];
 	}
 }

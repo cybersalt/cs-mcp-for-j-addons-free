@@ -90,8 +90,9 @@ final class UpdateUserFieldsTool extends AbstractTool
 			throw new \InvalidArgumentException('values must be a non-empty object of field name => value.');
 		}
 
-		$store    = [];
-		$problems = [];
+		$store      = [];
+		$textFields = [];
+		$problems   = [];
 		$columns  = $this->cbProfileColumns();
 
 		foreach ($values as $name => $value) {
@@ -116,12 +117,28 @@ final class UpdateUserFieldsTool extends AbstractTool
 				}
 
 				$store[$col] = $v;
+
+				if (\in_array((string) $field['type'], self::CB_TEXT_TYPES, true)) {
+					$textFields[$col] = ['name' => (string) $name, 'type' => (string) $field['type']];
+				}
 			}
 		}
 
 		if ($problems !== []) {
 			return ToolResult::json(['ok' => false, 'error' => 'Nothing was written.', 'problems' => $problems], true);
 		}
+
+		$cleaned = $this->cbRun($actor, fn (): array => $this->cbCleanFieldText($store, $textFields))['result'];
+
+		if ($cleaned['problems'] !== []) {
+			return ToolResult::json(['ok' => false, 'error' => 'Nothing was written.', 'problems' => $cleaned['problems']], true);
+		}
+
+		$store    = $cleaned['store'];
+		$filtered = $cleaned['filtered'] === [] ? [] : ['text_filter_changed' => [
+			'fields' => $cleaned['filtered'],
+			'note'   => 'Community Builder\'s HTML filter changed these fields before they were stored, as it does when a member saves the form.',
+		]];
 
 		$before    = $this->cbSnapshot($userId);
 		$noProfile = $before['comprofiler'] === [];
@@ -138,7 +155,7 @@ final class UpdateUserFieldsTool extends AbstractTool
 				'dry_run'     => true,
 				'would_store' => $preview,
 				'note'        => $noProfile ? 'This user has no CB profile row yet; it would first be created the way CB\'s Synchronize Users does.' : null,
-			]);
+			] + $filtered);
 		}
 
 		/*
@@ -194,7 +211,7 @@ final class UpdateUserFieldsTool extends AbstractTool
 			'error'              => $run['result']['error'],
 			'cb_messages'        => $run['messages'],
 			'plugin_errors'      => $run['plugin_errors'],
-		] + $this->cbContextNote() + $this->cbMailReport($run['mail'], false);
+		] + $filtered + $this->cbContextNote() + $this->cbMailReport($run['mail'], false);
 
 		if (array_intersect(array_keys($store), ['firstname', 'middlename', 'lastname']) !== []) {
 			$response['name_note'] = 'CB builds the Joomla "name" from first/middle/last name only when the member saves the form; this write does not change #__users.name.';
