@@ -1,6 +1,6 @@
 # MCP for JComments — Changelog
 
-## 🚀 Version 1.0.1 (unreleased, in test)
+## 🚀 Version 1.0.1 (November 5, 2026)
 
 - 🐛 **`get_jcomments_comment` now says correctly whether the author is subscribed to the article.** It
   read a field on the comment that JComments' own form never fills in, so it always said "not
