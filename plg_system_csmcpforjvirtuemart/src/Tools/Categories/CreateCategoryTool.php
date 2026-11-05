@@ -169,6 +169,10 @@ final class CreateCategoryTool extends AbstractTool
 
 		foreach (['category_template', 'category_layout', 'category_product_layout', 'products_per_row', 'limit_list_step', 'metarobot', 'metaauthor'] as $column) {
 			if (\array_key_exists($column, $arguments)) {
+				if (($refusal = $this->vmPlainTextRefusal($column, (string) $arguments[$column])) !== null) {
+					return $refusal;
+				}
+
 				$row->{$column} = (string) $arguments[$column];
 			}
 		}
@@ -225,7 +229,7 @@ final class CreateCategoryTool extends AbstractTool
 		$response['direct_write_note'] = $this->vmDirectWriteNotice();
 		$response['component']         = $this->vmComponentNotice();
 
-		return ToolResult::json($response);
+		return ToolResult::json($this->vmFilterReport($response));
 	}
 
 	/** @return array<string,mixed> */

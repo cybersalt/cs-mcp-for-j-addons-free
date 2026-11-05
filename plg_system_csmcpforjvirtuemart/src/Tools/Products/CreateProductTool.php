@@ -320,7 +320,7 @@ final class CreateProductTool extends AbstractTool
 		$response['direct_write_note'] = $this->vmDirectWriteNotice();
 		$response['component']         = $this->vmComponentNotice();
 
-		return ToolResult::json($response);
+		return ToolResult::json($this->vmFilterReport($response));
 	}
 
 	/**

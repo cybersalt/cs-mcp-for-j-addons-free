@@ -131,6 +131,10 @@ final class UpdateCategoryTool extends AbstractTool
 				continue;
 			}
 
+			if (\is_string($arguments[$column]) && ($refusal = $this->vmPlainTextRefusal($column, $arguments[$column])) !== null) {
+				return $refusal;
+			}
+
 			$deltas[$column] = match ($column) {
 				'category_parent_id', 'ordering', 'limit_list_initial' => (int) $arguments[$column],
 				'shared'    => (bool) $arguments[$column] ? 1 : 0,
@@ -303,6 +307,6 @@ final class UpdateCategoryTool extends AbstractTool
 		$response['direct_write_note'] = $this->vmDirectWriteNotice();
 		$response['component']         = $this->vmComponentNotice();
 
-		return ToolResult::json($response);
+		return ToolResult::json($this->vmFilterReport($response));
 	}
 }

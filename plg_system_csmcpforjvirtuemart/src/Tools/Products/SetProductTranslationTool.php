@@ -254,6 +254,6 @@ final class SetProductTranslationTool extends AbstractTool
 
 		$response['component'] = $this->vmComponentNotice();
 
-		return ToolResult::json($response);
+		return ToolResult::json($this->vmFilterReport($response));
 	}
 }

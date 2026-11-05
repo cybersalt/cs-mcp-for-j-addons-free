@@ -298,6 +298,10 @@ final class SetOrderStatusTool extends AbstractTool
 		// --- build the input, whitelisted ------------------------------------
 		$notify = (bool) ($arguments['notify_customer'] ?? true);
 
+		if (($refusal = $this->vmPlainTextRefusal('comments', (string) ($arguments['comments'] ?? ''))) !== null) {
+			return $refusal;
+		}
+
 		$input = [
 			'virtuemart_order_id' => $orderId,
 			'order_status'        => $status,

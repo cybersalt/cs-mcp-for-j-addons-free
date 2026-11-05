@@ -82,6 +82,12 @@ trait CategoryWriteTrait
 	 */
 	protected function buildCategoryLangRow(array $supplied, array $existing, string $langTable, int $categoryId): array|ToolResult
 	{
+		$supplied = $this->vmCleanSupplied($supplied, ['category_name', 'category_description'], ['metadesc', 'metakey', 'customtitle']);
+
+		if ($supplied instanceof ToolResult) {
+			return $supplied;
+		}
+
 		$fields = [];
 
 		foreach ($this->categoryLangWritable() as $column) {

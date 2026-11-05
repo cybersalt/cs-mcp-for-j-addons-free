@@ -114,6 +114,10 @@ final class UpdateManufacturerTool extends AbstractTool
 				continue;
 			}
 
+			if (\is_string($arguments[$column]) && ($refusal = $this->vmPlainTextRefusal($column, $arguments[$column])) !== null) {
+				return $refusal;
+			}
+
 			$deltas[$column] = match ($column) {
 				'virtuemart_manufacturercategories_id' => (int) $arguments[$column],
 				'published' => $this->vmNormalisePublished($arguments[$column]) ?? (int) $current['published'],
@@ -251,6 +255,6 @@ final class UpdateManufacturerTool extends AbstractTool
 		$response['direct_write_note'] = $this->vmDirectWriteNotice();
 		$response['component']         = $this->vmComponentNotice();
 
-		return ToolResult::json($response);
+		return ToolResult::json($this->vmFilterReport($response));
 	}
 }

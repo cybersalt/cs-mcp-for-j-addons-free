@@ -193,6 +193,12 @@ trait ProductWriteTrait
 	 */
 	protected function buildLangRow(array $supplied, array $existing, string $langTable, int $productId): array|ToolResult
 	{
+		$supplied = $this->vmCleanSupplied($supplied, ['product_name', 'product_s_desc', 'product_desc', 'customtitle'], ['metadesc', 'metakey']);
+
+		if ($supplied instanceof ToolResult) {
+			return $supplied;
+		}
+
 		$fields = [];
 
 		foreach ($this->productLangWritable() as $column) {
@@ -311,6 +317,10 @@ trait ProductWriteTrait
 			}
 
 			return $this->vmNormaliseMoney($value, $column);
+		}
+
+		if (\is_string($value) && ($refusal = $this->vmPlainTextRefusal($column, $value)) !== null) {
+			return $refusal;
 		}
 
 		return match ($column) {

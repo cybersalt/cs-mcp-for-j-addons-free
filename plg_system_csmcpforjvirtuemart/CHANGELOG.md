@@ -1,5 +1,10 @@
 # MCP for VirtueMart — Changelog
 
+## 🚀 Version 1.0.4 (November 5, 2026)
+
+- 🔒 **Joomla's text filters now apply.** Product, category and manufacturer text was stored exactly as sent, so an account whose text filters forbid scripts could put one on a public shop page. VirtueMart's own save filters these fields. The tools now do the same for product names and descriptions, category names and descriptions, manufacturer names and descriptions, and custom titles, and the response says which fields changed.
+- 🔒 **No HTML in plain-text fields.** Meta fields, SKUs, URLs, internal notes, layouts and order status comments are refused if they contain tags, because VirtueMart's own save doesn't store tags in them either.
+
 ## 🚀 Version 1.0.3 (November 4, 2026)
 
 - 🔒 **Every tool now applies VirtueMart's own permissions.** The AI can no longer do more than the Joomla account it acts for could do in VirtueMart itself. Each tool needs VirtueMart's Access Administration Interface permission and the permission for that job on VirtueMart's Permissions tab, such as Product access, Product edit or Order status change. Super Users pass as before. Before this, any account with MCP access could use every tool, including order and customer data.

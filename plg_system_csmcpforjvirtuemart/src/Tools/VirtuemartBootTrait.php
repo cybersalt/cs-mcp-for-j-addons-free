@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjvirtuemart\Tools;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Filter\InputFilter;
 use Joomla\CMS\User\User;
 
 /**
@@ -278,6 +279,9 @@ trait VirtuemartBootTrait
 	private static ?array $vmCompatCache = null;
 
 	private static bool $vmVendorBooted = false;
+
+	/** HTML fields Joomla's text filters changed in this call, for the tool's response. */
+	private array $vmFilteredFields = [];
 
 	// -----------------------------------------------------------------------
 	// Presence and identity
@@ -1525,5 +1529,74 @@ trait VirtuemartBootTrait
 			. '(models/customfields.php:1590-1599). Nothing was deleted here. The trade-off is that '
 			. 'plgVmBeforeStoreProduct and plgVmAfterStoreProduct did NOT fire, so third-party '
 			. 'custom-field, SEO and search-index plugins have not seen this change.';
+	}
+
+	/**
+	 * Refuses markup in a plain-text field. VirtueMart's save encodes these
+	 * (`vRequest::getPost()`), and the tools write past that save.
+	 */
+	protected function vmPlainTextRefusal(string $field, string $value): ?ToolResult
+	{
+		if (trim((string) InputFilter::getInstance()->clean($value, 'STRING')) === trim($value)) {
+			return null;
+		}
+
+		return ToolResult::json([
+			'ok'    => false,
+			'error' => $field . ' contains HTML tags or something that reads as one, which VirtueMart does not '
+				. 'allow in this field. Send it as plain text. Nothing was written.',
+		], true);
+	}
+
+	/**
+	 * Applies what VirtueMart's save does to the language fields a call supplied.
+	 * `getStrByAcl()` (`helpers/vmcontroller.php:155`) runs the HTML ones through Joomla's
+	 * text filters for this account, so without this an account whose filters forbid scripts
+	 * could store one on a public shop page. Values already on the row are left alone.
+	 *
+	 * @param  array<string,mixed> $supplied
+	 * @param  array<int,string>   $html
+	 * @param  array<int,string>   $plain
+	 * @return array<string,mixed>|ToolResult
+	 */
+	protected function vmCleanSupplied(array $supplied, array $html, array $plain): array|ToolResult
+	{
+		foreach ($supplied as $column => $value) {
+			if (!\is_string($value)) {
+				continue;
+			}
+
+			if (\in_array($column, $html, true)) {
+				$clean = (string) ComponentHelper::filterText($value);
+
+				if ($clean !== $value) {
+					$this->vmFilteredFields[] = (string) $column;
+				}
+
+				$supplied[$column] = $clean;
+			} elseif (\in_array($column, $plain, true) && ($refusal = $this->vmPlainTextRefusal((string) $column, $value)) !== null) {
+				return $refusal;
+			}
+		}
+
+		return $supplied;
+	}
+
+	/**
+	 * Adds the note about filtered fields to a write's response.
+	 *
+	 * @param  array<string,mixed> $response
+	 * @return array<string,mixed>
+	 */
+	protected function vmFilterReport(array $response): array
+	{
+		if ($this->vmFilteredFields !== []) {
+			$response['text_filter_changed'] = [
+				'fields' => array_values(array_unique($this->vmFilteredFields)),
+				'note'   => 'Joomla\'s text filters for this account changed these fields before they were stored (Global Configuration -> Text Filters).',
+			];
+		}
+
+		return $response;
 	}
 }

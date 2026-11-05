@@ -59,6 +59,12 @@ trait ManufacturerWriteTrait
 	 */
 	protected function buildManufacturerLangRow(array $supplied, array $existing, string $langTable, int $manufacturerId): array|ToolResult
 	{
+		$supplied = $this->vmCleanSupplied($supplied, ['mf_name', 'mf_desc', 'customtitle'], ['metadesc', 'metakey', 'mf_url']);
+
+		if ($supplied instanceof ToolResult) {
+			return $supplied;
+		}
+
 		$fields = [];
 
 		foreach ($this->manufacturerLangWritable() as $column) {

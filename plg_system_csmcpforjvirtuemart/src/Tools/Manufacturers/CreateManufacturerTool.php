@@ -139,6 +139,12 @@ final class CreateManufacturerTool extends AbstractTool
 			$langPlan[$tag] = $built;
 		}
 
+		foreach (['metarobot', 'metaauthor'] as $column) {
+			if (($refusal = $this->vmPlainTextRefusal($column, (string) ($arguments[$column] ?? ''))) !== null) {
+				return $refusal;
+			}
+		}
+
 		$now = $this->vmNow();
 
 		$row                                       = new \stdClass();
@@ -193,7 +199,7 @@ final class CreateManufacturerTool extends AbstractTool
 		$response['direct_write_note'] = $this->vmDirectWriteNotice();
 		$response['component']         = $this->vmComponentNotice();
 
-		return ToolResult::json($response);
+		return ToolResult::json($this->vmFilterReport($response));
 	}
 
 	/** @return array<string,mixed> */
