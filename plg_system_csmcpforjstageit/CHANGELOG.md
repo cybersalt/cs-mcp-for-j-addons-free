@@ -1,6 +1,6 @@
 # MCP for StageIt — Changelog
 
-## 🚀 Version 1.1.0 (unreleased, in test)
+## 🚀 Version 1.1.0 (November 5, 2026)
 
 Brings the add-on up to date with **StageIt 6.4.0 and later on Joomla 6** (and 5.8.0+ on Joomla 5), using
 the same in-process way of running StageIt that StageIt's own command line uses. Tested on Joomla 6.1.4
