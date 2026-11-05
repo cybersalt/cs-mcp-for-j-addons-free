@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjoverridechecker\Tools\Backups;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Cybersalt\Component\Csoverridechecker\Administrator\Helper\BackupsHelper;
+use Cybersalt\Component\Csoverridechecker\Administrator\Helper\UnsafeContentsException;
 use Cybersalt\Plugin\System\Csmcpforjoverridechecker\Tools\OverrideCheckerBootTrait;
 use Joomla\CMS\User\User;
 
@@ -28,7 +29,9 @@ final class RestoreBackupTool extends AbstractTool
 		return 'Put a backed-up file back, through Override Checker\'s Restore: it first backs up the file as it is now '
 			. '(pre_restore_backup_id), so a restore can be undone too. Override Checker only writes inside '
 			. 'templates/<template>/html/. Use it to undo apply_override_checker_fix (its pre_fix_backup_id). Only for a '
-			. 'backup the user has agreed to restore.';
+			. 'backup the user has agreed to restore. A backup holding code such as eval or shell commands that the '
+			. 'current file does not have is refused, because it may be a backdoor a fix removed; only a person can '
+			. 'restore that, from Override Checker\'s File backups screen.';
 	}
 
 	public function getInputSchema(): array
@@ -73,7 +76,17 @@ final class RestoreBackupTool extends AbstractTool
 		}
 
 		// Pre-restore backup, path allow-list, size cap, write, opcache, action log: all Override Checker's.
-		$result = BackupsHelper::restore($id);
+		try {
+			$result = BackupsHelper::restore($id);
+		} catch (UnsafeContentsException $e) {
+			// Could be the backdoor a fix removed. Only a person may bring it back, from the admin.
+			return ToolResult::json([
+				'ok'       => false,
+				'restored' => false,
+				'error'    => $e->getMessage(),
+				'path'     => $relative,
+			], true);
+		}
 
 		clearstatcache();
 		$liveHash = $this->ocLiveHash($relative);

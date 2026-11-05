@@ -1,6 +1,6 @@
 # MCP for Override Checker — Changelog
 
-## 🚀 Version 1.0.0 (unreleased)
+## 🚀 Version 1.0.0 (November 5, 2026)
 
 First release. 12 tools for **Cybersalt Override Checker** (`com_csoverridechecker`), so any MCP client can review
 and fix the template overrides Joomla flags after an update. Browser chats such as claude.ai, ChatGPT and Gemini
@@ -29,7 +29,8 @@ later**.
   read would delete the end of the override when written back, so these tools return the whole file (up to the
   REST API's 1 MB cap).
 - **A fix must name the file it was built from.** `apply_override_checker_fix` needs the sha256 of the file it read
-  and refuses to write if the file on disk differs. A `.php` fix that doesn't parse is refused, and writing the
+  and refuses to write if the file on disk differs. A fix or restore that adds code such as `eval`, shell commands
+  or request input the file didn't have is refused by Override Checker. A `.php` fix that doesn't parse is refused, and writing the
   bytes already there does nothing.
 - **One row at a time.** No dismiss-all: Override Checker removed it from its own chat in 2.3.3 after a misread
   instruction cleared 70 rows in testing.
