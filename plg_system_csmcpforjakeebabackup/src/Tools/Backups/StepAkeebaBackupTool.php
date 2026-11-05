@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\Backups;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Helper\AkeebaEngineBootstrap;
+use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\AkeebaAccessTrait;
 use Joomla\CMS\User\User;
 
 /**
@@ -24,6 +25,8 @@ use Joomla\CMS\User\User;
  */
 final class StepAkeebaBackupTool extends AbstractTool
 {
+	use AkeebaAccessTrait;
+
 	public function getName(): string { return 'step_akeeba_backup'; }
 
 	public function getDescription(): string
@@ -55,6 +58,10 @@ final class StepAkeebaBackupTool extends AbstractTool
 	protected function run(array $arguments, User $actor): ToolResult
 	{
 		$component = AkeebaEngineBootstrap::boot();
+
+		if ($refusal = $this->akeebaRefusal($actor, 'akeebabackup.backup')) {
+			return $refusal;
+		}
 
 		$backupId = $this->requireString($arguments, 'backup_id');
 		$tag      = trim((string) ($arguments['tag'] ?? 'json')) ?: 'json';

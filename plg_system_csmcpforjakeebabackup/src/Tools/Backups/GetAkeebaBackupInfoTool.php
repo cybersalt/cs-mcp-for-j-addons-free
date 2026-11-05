@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\Backups;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Helper\BackupState;
+use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\AkeebaAccessTrait;
 use Joomla\CMS\User\User;
 
 /**
@@ -23,6 +24,8 @@ use Joomla\CMS\User\User;
  */
 final class GetAkeebaBackupInfoTool extends AbstractTool
 {
+	use AkeebaAccessTrait;
+
 	public function getName(): string { return 'get_akeeba_backup_info'; }
 
 	public function getDescription(): string
@@ -58,6 +61,10 @@ final class GetAkeebaBackupInfoTool extends AbstractTool
 		$tables = $this->db->getTableList();
 		if (!in_array($table, $tables, true)) {
 			return ToolResult::error('Akeeba Backup is not installed on this site.');
+		}
+
+		if ($refusal = $this->akeebaRefusal($actor)) {
+			return $refusal;
 		}
 
 		$q = $this->db->getQuery(true)

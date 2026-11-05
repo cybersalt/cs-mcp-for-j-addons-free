@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\Backups;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Helper\AkeebaEngineBootstrap;
+use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\AkeebaAccessTrait;
 use Joomla\CMS\User\User;
 
 /**
@@ -38,6 +39,8 @@ use Joomla\CMS\User\User;
  */
 final class StartAkeebaBackupTool extends AbstractTool
 {
+	use AkeebaAccessTrait;
+
 	public function getName(): string { return 'start_akeeba_backup'; }
 
 	public function getDescription(): string
@@ -77,6 +80,10 @@ final class StartAkeebaBackupTool extends AbstractTool
 	{
 		$component = AkeebaEngineBootstrap::boot();
 
+		if ($refusal = $this->akeebaRefusal($actor, 'akeebabackup.backup')) {
+			return $refusal;
+		}
+
 		$profileId   = max(1, (int) ($arguments['profile_id'] ?? 1));
 		$description = trim((string) ($arguments['description'] ?? ''));
 		$comment     = (string) ($arguments['comment'] ?? '');
@@ -90,15 +97,19 @@ final class StartAkeebaBackupTool extends AbstractTool
 			\define('AKEEBA_PROFILE', $profileId);
 		}
 
-		$profileExists = (int) $this->db->setQuery(
+		$profileAccess = $this->db->setQuery(
 			$this->db->getQuery(true)
-				->select('COUNT(*)')
+				->select($this->db->quoteName('access'))
 				->from($this->db->quoteName('#__akeebabackup_profiles'))
 				->where($this->db->quoteName('id') . ' = ' . $profileId)
 		)->loadResult();
 
-		if ($profileExists === 0) {
+		if ($profileAccess === null) {
 			return ToolResult::error('Akeeba Backup profile ' . $profileId . ' does not exist. Nothing was started. Use list_akeeba_profiles.');
+		}
+
+		if (!$this->akeebaCanUseProfile($actor, (int) $profileAccess)) {
+			return ToolResult::error('Refused: profile ' . $profileId . ' is at an access level the Joomla account this AI app acts for does not have. Nothing was started.');
 		}
 
 		// Load the profile the way Akeeba's own Dispatcher does before any backup

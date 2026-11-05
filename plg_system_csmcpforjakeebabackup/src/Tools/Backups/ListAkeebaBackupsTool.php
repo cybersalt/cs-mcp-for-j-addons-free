@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\Backups;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Helper\BackupState;
+use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\AkeebaAccessTrait;
 use Joomla\CMS\User\User;
 
 /**
@@ -41,6 +42,8 @@ use Joomla\CMS\User\User;
  */
 final class ListAkeebaBackupsTool extends AbstractTool
 {
+	use AkeebaAccessTrait;
+
 	private const ALLOWED_STATUS = ['run', 'fail', 'complete'];
 
 	public function getName(): string { return 'list_akeeba_backups'; }
@@ -115,6 +118,10 @@ final class ListAkeebaBackupsTool extends AbstractTool
 				'Akeeba Backup is not installed on this site (table ' . $table . ' missing). '
 				. 'Install com_akeebabackup from https://www.akeeba.com/download/akeeba-backup.html.'
 			);
+		}
+
+		if ($refusal = $this->akeebaRefusal($actor)) {
+			return $refusal;
 		}
 
 		$limit  = max(1, min(100, (int) ($arguments['limit'] ?? 25)));

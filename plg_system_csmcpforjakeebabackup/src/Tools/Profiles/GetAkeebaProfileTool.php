@@ -13,6 +13,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\Profiles;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
+use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\AkeebaAccessTrait;
 use Joomla\CMS\User\User;
 
 /**
@@ -27,6 +28,8 @@ use Joomla\CMS\User\User;
  */
 final class GetAkeebaProfileTool extends AbstractTool
 {
+	use AkeebaAccessTrait;
+
 	public function getName(): string { return 'get_akeeba_profile'; }
 
 	public function getDescription(): string
@@ -34,7 +37,8 @@ final class GetAkeebaProfileTool extends AbstractTool
 		return 'Get one Akeeba Backup profile by id. Returns description, quickicon, access, '
 			. 'and the raw configuration + filters blobs. The blobs are Akeeba\'s serialized '
 			. '(and possibly encrypted) per-profile engine settings — opaque from outside, '
-			. 'kept on the response for completeness.';
+			. 'kept on the response for completeness, and returned only to an account with '
+			. 'Akeeba Backup\'s "Configure" permission.';
 	}
 
 	public function getInputSchema(): array
@@ -61,6 +65,10 @@ final class GetAkeebaProfileTool extends AbstractTool
 			return ToolResult::error('Akeeba Backup is not installed on this site.');
 		}
 
+		if ($refusal = $this->akeebaRefusal($actor)) {
+			return $refusal;
+		}
+
 		$q = $this->db->getQuery(true)
 			->select('*')
 			->from($this->db->quoteName('#__akeebabackup_profiles'))
@@ -72,13 +80,26 @@ final class GetAkeebaProfileTool extends AbstractTool
 			return ToolResult::error('No Akeeba profile found with id ' . $id);
 		}
 
-		return ToolResult::json([
+		if (!$this->akeebaCanUseProfile($actor, (int) $row['access'])) {
+			return ToolResult::error('Refused: profile ' . $id . ' is at an access level the Joomla account this AI app acts for does not have.');
+		}
+
+		$out = [
 			'id'            => (int) $row['id'],
 			'description'   => (string) $row['description'],
 			'quickicon'     => (int) $row['quickicon'] === 1,
 			'access'        => (int) $row['access'],
-			'configuration' => (string) ($row['configuration'] ?? ''),
-			'filters'       => (string) ($row['filters'] ?? ''),
-		]);
+		];
+
+		// The blobs can hold remote storage credentials and the archive password,
+		// and Akeeba shows them only on its Configuration page.
+		if ($actor->authorise('akeebabackup.configure', 'com_akeebabackup')) {
+			$out['configuration'] = (string) ($row['configuration'] ?? '');
+			$out['filters']       = (string) ($row['filters'] ?? '');
+		} else {
+			$out['settings_hidden'] = 'The configuration and filters need Akeeba Backup\'s "Configure" permission (akeebabackup.configure).';
+		}
+
+		return ToolResult::json($out);
 	}
 }

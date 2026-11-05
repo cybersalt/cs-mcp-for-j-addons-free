@@ -13,6 +13,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\Profiles;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
+use Cybersalt\Plugin\System\Csmcpforjakeebabackup\Tools\AkeebaAccessTrait;
 use Joomla\CMS\User\User;
 
 /**
@@ -28,11 +29,13 @@ use Joomla\CMS\User\User;
  */
 final class ListAkeebaProfilesTool extends AbstractTool
 {
+	use AkeebaAccessTrait;
+
 	public function getName(): string { return 'list_akeeba_profiles'; }
 
 	public function getDescription(): string
 	{
-		return 'List every Akeeba Backup profile on the site. Returns id, description, '
+		return 'List the Akeeba Backup profiles at this account\'s access levels. Returns id, description, '
 			. 'quickicon flag (1 = surfaced as a Quick Icon), and access level. The '
 			. '`configuration` and `filters` columns are deliberately omitted from the '
 			. 'list response (they are large serialized blobs); use get_akeeba_profile '
@@ -63,6 +66,10 @@ final class ListAkeebaProfilesTool extends AbstractTool
 			);
 		}
 
+		if ($refusal = $this->akeebaRefusal($actor)) {
+			return $refusal;
+		}
+
 		$q = $this->db->getQuery(true)
 			->select([
 				$this->db->quoteName('id'),
@@ -74,6 +81,9 @@ final class ListAkeebaProfilesTool extends AbstractTool
 			->order($this->db->quoteName('id') . ' ASC');
 
 		$rows = $this->db->setQuery($q)->loadAssocList() ?: [];
+
+		// Akeeba's own profile selector lists only profiles at the account's access levels.
+		$rows = array_values(array_filter($rows, fn (array $r): bool => $this->akeebaCanUseProfile($actor, (int) $r['access'])));
 
 		// Cast for readability + downstream JSON shape stability.
 		$out = array_map(static function (array $r): array {
