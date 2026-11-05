@@ -1,5 +1,10 @@
 <div class="changelog-container">
 <h1>📋 MCP for JCE — Changelog</h1>
+<h2>🚀 Version 1.0.4 (November 5, 2026)</h2>
+<ul>
+<li>🔒 <strong>No HTML in profile names, descriptions or component lists.</strong> These were stored exactly as sent, and JCE's profile list prints a profile's name without escaping it, so a tag saved as a name would run in the browser of whoever opened that list. JCE's own save strips tags from these fields. <code>create_jce_profile</code>, <code>update_jce_profile</code>, <code>duplicate_jce_profile</code> and <code>set_jce_profile_assignment</code> now refuse them.</li>
+<li>🔒 <strong>Settings are encoded the way JCE encodes them.</strong> <code>set_jce_profile_params</code> stored values as sent. It now encodes special characters as JCE's own save does, and the response lists the settings it changed.</li>
+</ul>
 <h2>🚀 Version 1.0.3 (November 4, 2026)</h2>
 <ul>
 <li>🔒 <strong>Every tool now applies JCE's own permissions.</strong> The AI can no longer do more than the Joomla account it acts for could do in JCE itself. Each tool needs JCE's Access Component permission, plus Editor Profiles for profile work or Editor Global Configuration for the settings read. Super Users pass as before. Before this, any account with MCP access could use every tool, including ones that change what an editor profile can upload.</li>

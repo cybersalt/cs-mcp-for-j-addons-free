@@ -13,6 +13,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjjce\Tools;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Component\ComponentHelper;
+use Joomla\CMS\Filter\InputFilter;
 use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\CMS\User\User;
 
@@ -1185,5 +1186,40 @@ trait JceBootTrait
 		}
 
 		return $known;
+	}
+
+	/**
+	 * Refuses markup in a profile's name, description or component list. JCE's save strips
+	 * tags from these (`ProfileModel::prepareTable()`) and its profile list prints the name
+	 * unescaped (`tmpl/profiles/default.php:113`), so a tag stored here would run in the
+	 * browser of whoever opens that list.
+	 */
+	protected function jcePlainTextRefusal(string $field, string $value): ?ToolResult
+	{
+		if (trim((string) InputFilter::getInstance()->clean($value, 'STRING')) === trim($value)) {
+			return null;
+		}
+
+		return ToolResult::json([
+			'ok'    => false,
+			'error' => $field . ' contains HTML tags or something that reads as one, which JCE does not allow in '
+				. 'this field. Send it as plain text. Nothing was written.',
+		], true);
+	}
+
+	/**
+	 * Encodes a setting's value the way JCE's save does (`ProfileModel::save()`,
+	 * FILTER_SANITIZE_SPECIAL_CHARS), decoding first so a value read back from
+	 * get_jce_profile_params isn't encoded twice.
+	 */
+	protected function jceEncodeParamValue(mixed $value): mixed
+	{
+		if (\is_array($value)) {
+			return array_map(fn (mixed $v): mixed => $this->jceEncodeParamValue($v), $value);
+		}
+
+		return \is_string($value)
+			? (string) filter_var(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'), FILTER_SANITIZE_SPECIAL_CHARS)
+			: $value;
 	}
 }

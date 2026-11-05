@@ -108,6 +108,10 @@ final class UpdateProfileTool extends AbstractTool
 				], true);
 			}
 
+			if (($refusal = $this->jcePlainTextRefusal('name', $name)) !== null) {
+				return $refusal;
+			}
+
 			if (strcasecmp((string) $row['name'], 'Default') === 0 && strcasecmp($name, 'Default') !== 0) {
 				return ToolResult::json([
 					'ok'    => false,
@@ -141,6 +145,10 @@ final class UpdateProfileTool extends AbstractTool
 		}
 
 		if (\array_key_exists('description', $arguments)) {
+			if (($refusal = $this->jcePlainTextRefusal('description', (string) $arguments['description'])) !== null) {
+				return $refusal;
+			}
+
 			$updates['description'] = (string) $arguments['description'];
 		}
 

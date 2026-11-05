@@ -242,6 +242,16 @@ final class SetProfileParamsTool extends AbstractTool
 			], true);
 		}
 
+		$encodedPaths = [];
+
+		foreach ($sets as $path => $value) {
+			$sets[$path] = $this->jceEncodeParamValue($value);
+
+			if ($sets[$path] !== $value) {
+				$encodedPaths[] = (string) $path;
+			}
+		}
+
 		// ------------------------------------------------------------------
 		// Apply.
 		// ------------------------------------------------------------------
@@ -329,6 +339,13 @@ final class SetProfileParamsTool extends AbstractTool
 				. 'column — JCE\'s own UI preserves those too.',
 			'component'  => $this->jceEditionNotice(),
 		];
+
+		if ($encodedPaths !== []) {
+			$response['special_characters_encoded'] = [
+				'paths' => $encodedPaths,
+				'note'  => 'JCE stores settings with < > & and quotes encoded, so these values were encoded the same way.',
+			];
+		}
 
 		if ((bool) ($arguments['preview'] ?? false)) {
 			$response['preview'] = true;

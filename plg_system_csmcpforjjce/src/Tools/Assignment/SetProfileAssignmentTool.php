@@ -162,6 +162,10 @@ final class SetProfileAssignmentTool extends AbstractTool
 			foreach ((array) $arguments['components'] as $option) {
 				$option = trim((string) $option);
 
+				if (($refusal = $this->jcePlainTextRefusal('components', $option)) !== null) {
+					return $refusal;
+				}
+
 				if ($option !== '') {
 					$components[] = $option;
 				}

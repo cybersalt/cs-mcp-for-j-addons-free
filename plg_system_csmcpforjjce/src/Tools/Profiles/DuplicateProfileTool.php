@@ -120,6 +120,10 @@ final class DuplicateProfileTool extends AbstractTool
 
 		$newName = trim((string) ($arguments['new_name'] ?? ''));
 
+		if (($refusal = $this->jcePlainTextRefusal('new_name', $newName)) !== null) {
+			return $refusal;
+		}
+
 		if ($newName === '') {
 			$newName = $this->incrementName((string) $source['name']);
 		} elseif ($this->nameExists($newName)) {

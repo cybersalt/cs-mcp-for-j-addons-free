@@ -113,6 +113,18 @@ final class CreateProfileTool extends AbstractTool
 
 		$name = $this->requireString($arguments, 'name');
 
+		$plain = ['name' => $name, 'description' => (string) ($arguments['description'] ?? '')];
+
+		foreach ((array) ($arguments['components'] ?? []) as $option) {
+			$plain['components'] = (string) ($plain['components'] ?? '') . (string) $option;
+		}
+
+		foreach ($plain as $field => $text) {
+			if (($refusal = $this->jcePlainTextRefusal($field, $text)) !== null) {
+				return $refusal;
+			}
+		}
+
 		if (($clash = $this->nameClash($name)) !== null) {
 			return $clash;
 		}
