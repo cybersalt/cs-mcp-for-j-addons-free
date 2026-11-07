@@ -69,7 +69,7 @@ trait ConversionSupportTrait
 
 			if ($this->ammTitleHasHtml((string) $module->title)) {
 				$decide[] = ['id' => (int) $id, 'title' => strip_tags((string) $module->title), 'position' => $module->position,
-					'why' => 'Its title holds HTML, and the Conditions screen lists module titles without escaping them. Fix the title, then convert it.'];
+					'why' => 'Its title holds HTML, which these tools don\'t accept. Fix the title, then convert it.'];
 				continue;
 			}
 

@@ -50,10 +50,9 @@ use Joomla\Event\SubscriberInterface;
  *      other Regular Labs extensions use the same table. Every write that
  *      changes a set names what it reaches.
  *
- *   4. other__php runs code. Security::checkCanSavePhp() lets a Super User
- *      through, and an MCP token can be one, so nothing here writes a PHP rule,
- *      or attaches, publishes, copies or nests a set that runs one. Reads give a
- *      size and fingerprint, never the code.
+ *   4. other__php runs code, so nothing here writes a PHP rule, or attaches,
+ *      publishes, copies or nests a set that runs one. Reads give a size and
+ *      fingerprint, never the code.
  *
  *   5. Free and Pro ship the same Conditions package. The edition gate is
  *      Helper::getConditionTypes() in the plugin: Free returns a list, Pro

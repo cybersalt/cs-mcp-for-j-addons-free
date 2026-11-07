@@ -485,10 +485,8 @@ trait AmmBootTrait
 	}
 
 	/**
-	 * A set included by one that runs PHP can decide whether that PHP runs. The
-	 * vendor passes an unpublished nested set and short-circuits a group on the
-	 * first rule that settles it, so editing or unpublishing the included set can
-	 * make the code run for visitors it doesn't reach today.
+	 * A set included by one that runs PHP is left alone too, the same as the PHP
+	 * set itself.
 	 *
 	 * @throws \RuntimeException
 	 */
@@ -657,7 +655,7 @@ trait AmmBootTrait
 		$html = array_keys(array_filter($modules, fn($m) => $this->ammTitleHasHtml((string) $m->title)));
 
 		if ($html !== []) {
-			throw new \RuntimeException('Nothing was changed. The title of module ' . implode(', ', $html) . ' holds HTML, and the Conditions screen lists module titles without escaping them. Fix the title first.');
+			throw new \RuntimeException('Nothing was changed. The title of module ' . implode(', ', $html) . ' holds HTML, which these tools don\'t accept. Fix the title first.');
 		}
 
 		return $modules;

@@ -244,7 +244,7 @@ The tools use Override Checker's own permissions: `csoverridechecker.view` for r
 
 **A set is shared, so an edit reaches further than it looks.** One set can serve any number of modules, and other Regular Labs extensions use the same tables. Every write that changes a set names what it reaches. A set that isn't published counts as no set, so unpublishing or trashing one puts all its modules on every page: those need `confirm: true`.
 
-**`other__php` runs code on the server, and a Super User token passes the vendor's own check.** So nothing here writes a PHP rule, and nothing attaches, publishes, copies or nests a set that runs one, because each could make the code run somewhere it doesn't today. That goes for changes to a set that a PHP set includes as well: the vendor passes an unpublished nested set and short-circuits a group, so unpublishing the included set can start the code running. Reads give a line count and a fingerprint, never the code. The test plants a rule that writes a marker file and confirms nothing here runs it.
+**`other__php` runs code on the server.** So nothing here writes a PHP rule, and nothing attaches, publishes, copies or nests a set that runs one, or changes a set that one includes. Reads give a line count and a fingerprint, never the code. The test plants a rule that writes a marker file and confirms nothing here runs it.
 
 **Free and Pro ship the same Conditions package.** The edition gate is one list in the plugin, `Helper::getConditionTypes()`, and `passGroup()` skips anything not on it. A Pro rule on a Free site is ignored rather than failing, so a set holding only those shows its modules everywhere. The health check flags that. This add-on's catalog matches the vendor's list exactly, checked against the source.
 
