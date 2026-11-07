@@ -1,0 +1,150 @@
+<?php
+/**
+ * @package     MCP for Advanced Module Manager
+ * @copyright   Copyright (C) 2026 Cybersalt Consulting Ltd.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
+ */
+
+declare(strict_types=1);
+
+\defined('_JEXEC') or die;
+
+use Joomla\CMS\Factory;
+use Joomla\CMS\Installer\InstallerAdapter;
+use Joomla\CMS\Installer\InstallerScriptInterface;
+use Joomla\Database\DatabaseInterface;
+
+class PlgSystemCsmcpforjadvancedmodulesfreeInstallerScript implements InstallerScriptInterface
+{
+	private const LABEL = 'MCP add-on for Advanced Module Manager';
+
+	public function install(InstallerAdapter $adapter): bool   { return true; }
+	public function update(InstallerAdapter $adapter): bool    { return true; }
+	public function uninstall(InstallerAdapter $adapter): bool { return true; }
+	public function preflight(string $type, InstallerAdapter $adapter): bool { return true; }
+
+	public function postflight(string $type, InstallerAdapter $adapter): bool
+	{
+		if (!\in_array($type, ['install', 'update', 'discover_install'], true)) {
+			return true;
+		}
+
+		$app = Factory::getApplication();
+
+		// Without MCP for Joomla there is nothing to add tools TO, so leave the
+		// plugin disabled (Joomla installs plugins disabled) and explain.
+		if (!$this->extensionExists('component', 'com_csmcpforj')) {
+			$app->enqueueMessage(
+				self::LABEL . ' was installed but has been left DISABLED, because the CS MCP for J extension is '
+				. 'not on this site. This add-on only adds tools to MCP for J - on its own it does nothing. '
+				. 'Install CS MCP for J first, then enable this plugin in System -> Plugins. Nothing is broken '
+				. 'and the site is unaffected.',
+				'warning'
+			);
+
+			$this->clearCaches();
+
+			return true;
+		}
+
+		try {
+			$db = Factory::getContainer()->get(DatabaseInterface::class);
+			$db->setQuery(
+				$db->getQuery(true)
+					->update($db->quoteName('#__extensions'))
+					->set($db->quoteName('enabled') . ' = 1')
+					->where($db->quoteName('type') . ' = ' . $db->quote('plugin'))
+					->where($db->quoteName('folder') . ' = ' . $db->quote('system'))
+					->where($db->quoteName('element') . ' = ' . $db->quote('csmcpforjadvancedmodulesfree'))
+			)->execute();
+		} catch (\Throwable $e) {
+			$app->enqueueMessage('csmcpforjadvancedmodulesfree auto-enable failed: ' . $e->getMessage(), 'warning');
+		}
+
+		$app->enqueueMessage(
+			self::LABEL . ' installed and active. New tools are exposed to your connected MCP clients: which modules show where and what decides it, Condition Sets and their rules, attaching one set to many modules, and converting Joomla\'s own assignments to sets. '
+			. 'There is no separate admin UI for this plugin by design.',
+			'message'
+		);
+
+		if (!$this->extensionExists('component', 'com_advancedmodules')) {
+			$app->enqueueMessage(
+				'Advanced Module Manager (Regular Labs) is not installed on this site yet, so these tools will report '
+				. '"not installed" until it is. Version 12.1.0 or later is recommended.',
+				'notice'
+			);
+		} else {
+			$app->enqueueMessage(
+				'Advanced Module Manager detected. FIRST THINGS TO RUN: get_advancedmodules_component_info, then check_advancedmodules_health. '
+				. 'Extra fields, HTML around modules and the Pro rule types are in the separate Pro add-on and need Advanced Module Manager Pro itself.',
+				'notice'
+			);
+		}
+
+		$this->clearCaches();
+
+		return true;
+	}
+
+	/** Fails OPEN on a database error, so an install never fails on the check itself. */
+	private function extensionExists(string $type, string $element, string $folder = ''): bool
+	{
+		try {
+			$db    = Factory::getContainer()->get(DatabaseInterface::class);
+			$query = $db->getQuery(true)
+				->select('COUNT(*)')
+				->from($db->quoteName('#__extensions'))
+				->where($db->quoteName('type') . ' = ' . $db->quote($type))
+				->where($db->quoteName('element') . ' = ' . $db->quote($element));
+
+			if ($folder !== '') {
+				$query->where($db->quoteName('folder') . ' = ' . $db->quote($folder));
+			}
+
+			return (int) $db->setQuery($query)->loadResult() > 0;
+		} catch (\Throwable $e) {
+			return true;
+		}
+	}
+
+	/**
+	 * Drop the caches that can hide a freshly installed add-on: Joomla's PSR-4
+	 * autoload map, opcache, and Joomla's cache groups. Best-effort only.
+	 */
+	private function clearCaches(): void
+	{
+		foreach ([JPATH_SITE . '/cache', JPATH_ADMINISTRATOR . '/cache'] as $cachePath) {
+			$map = $cachePath . '/autoload_psr4.php';
+
+			if (is_file($map)) {
+				@unlink($map);
+			}
+		}
+
+		if (function_exists('opcache_reset')) {
+			@opcache_reset();
+		}
+
+		foreach ([JPATH_SITE . '/cache', JPATH_ADMINISTRATOR . '/cache'] as $cachePath) {
+			if (!is_dir($cachePath)) {
+				continue;
+			}
+
+			foreach ((array) glob($cachePath . '/*', GLOB_ONLYDIR) as $dir) {
+				// Never touch Login as User's pending one-time links, or any other
+				// extension's non-cache state that happens to live under cache/.
+				if (basename((string) $dir) === 'plg_system_loginasuser') {
+					continue;
+				}
+
+				try {
+					$cache = Factory::getCache(basename((string) $dir), '');
+					$cache->setCaching(true);
+					$cache->clean();
+				} catch (\Throwable $e) {
+					// Best effort.
+				}
+			}
+		}
+	}
+}
