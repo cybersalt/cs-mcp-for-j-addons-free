@@ -65,8 +65,8 @@ final class MarkSpamTool extends AbstractTool
 				'ids'    => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Comment ids (up to 200).'],
 				'action' => ['type' => 'string', 'enum' => ['unpublish', 'delete', 'none'], 'description' => 'Default unpublish. "none" = only ban.'],
 				'ban_ip' => ['type' => 'boolean', 'description' => 'Add each comment\'s IP to the JComments blacklist.'],
-				'reason' => ['type' => 'string', 'description' => 'Blacklist reason (shown in JComments\' admin). Default "Spam comment #<id>".'],
-				'notes'  => ['type' => 'string', 'description' => 'Optional blacklist note.'],
+				'reason' => ['type' => 'string', 'description' => 'Blacklist reason, plain text (shown in JComments\' admin). Default "Spam comment #<id>".'],
+				'notes'  => ['type' => 'string', 'description' => 'Optional blacklist note, plain text.'],
 			],
 			'required'             => ['ids'],
 			'additionalProperties' => false,
@@ -109,6 +109,14 @@ final class MarkSpamTool extends AbstractTool
 		$ids    = $this->jcIds($arguments);
 		$reason = trim((string) ($arguments['reason'] ?? ''));
 		$notes  = trim((string) ($arguments['notes'] ?? ''));
+
+		// JComments' own blacklist form strips tags from both (models/forms/blacklist.xml,
+		// filter="string") and its admin list prints them as stored, so markup is refused.
+		foreach (['reason' => $reason, 'notes' => $notes] as $field => $value) {
+			if (strip_tags($value) !== $value) {
+				throw new \InvalidArgumentException($field . ' contains HTML (or a "<" that looks like a tag). It is plain text in JComments. Nothing was written.');
+			}
+		}
 
 		// reason and notes are TINYTEXT: 255 bytes.
 		$this->jcRequireFits('reason', $reason, 255, true);

@@ -1,5 +1,13 @@
 # MCP for JComments — Changelog
 
+## 🚀 Version 1.0.2 (November 12, 2026)
+
+- 🔒 **Security hardening.** Blacklist reasons and notes written by `mark_jcomments_spam` follow the same
+  plain-text rule as JComments' own blacklist form.
+- 🔧 **`set_jcomments_comment_state` with `notify: true` takes up to 20 comments per call**, since each
+  one can email every subscriber of its article. Without `notify` the limit stays at 200.
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.0.1 (November 5, 2026)
 
 - 🐛 **`get_jcomments_comment` now says correctly whether the author is subscribed to the article.** It

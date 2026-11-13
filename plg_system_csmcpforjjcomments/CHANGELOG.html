@@ -1,5 +1,11 @@
 <div class="changelog-container">
 <h1>📋 MCP for JComments — Changelog</h1>
+<h2>🚀 Version 1.0.2 (November 12, 2026)</h2>
+<ul>
+<li>🔒 <strong>Security hardening.</strong> Blacklist reasons and notes written by <code>mark_jcomments_spam</code> follow the same plain-text rule as JComments' own blacklist form.</li>
+<li>🔧 <strong><code>set_jcomments_comment_state</code> with <code>notify: true</code> takes up to 20 comments per call</strong>, since each one can email every subscriber of its article. Without <code>notify</code> the limit stays at 200.</li>
+<li>🔧 <strong>Joomla's Changelog button now works for this add-on.</strong> On System → Manage → Extensions it shows this add-on's release notes.</li>
+</ul>
 <h2>🚀 Version 1.0.1 (November 5, 2026)</h2>
 <ul>
 <li>🐛 <strong><code>get_jcomments_comment</code> now says correctly whether the author is subscribed to the article.</strong> It read a field on the comment that JComments' own form never fills in, so it always said "not subscribed", even for authors who ticked "Notify me of follow-up comments". It now checks JComments' subscription list for the author (by account, or by email for a guest).</li>

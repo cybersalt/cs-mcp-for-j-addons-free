@@ -56,7 +56,7 @@ final class SetCommentStateTool extends AbstractTool
 			'properties' => [
 				'ids'    => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Comment ids (up to 200).'],
 				'state'  => ['type' => 'string', 'enum' => ['published', 'unpublished']],
-				'notify' => ['type' => 'boolean', 'description' => 'Default false. True = run JComments\' publish events and subscriber mail, as its admin Publish button does.'],
+				'notify' => ['type' => 'boolean', 'description' => 'Default false. True = run JComments\' publish events and subscriber mail, as its admin Publish button does (at most 20 comments per call).'],
 			],
 			'required'             => ['ids', 'state'],
 			'additionalProperties' => false,
@@ -82,6 +82,10 @@ final class SetCommentStateTool extends AbstractTool
 
 		$value   = $state === 'published' ? 1 : 0;
 		$notify  = ($arguments['notify'] ?? false) === true;
+
+		if ($notify && \count($ids) > 20) {
+			throw new \InvalidArgumentException('notify: true takes at most 20 comments per call, because each one can mail every subscriber of its article; got ' . \count($ids) . '. Nothing was changed.');
+		}
 		$db      = $this->db;
 		$table   = $db->quoteName($this->jcTable(''));
 		$queue0  = $this->jcMailQueueCount();
