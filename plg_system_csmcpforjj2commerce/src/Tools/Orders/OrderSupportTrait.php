@@ -65,7 +65,7 @@ trait OrderSupportTrait
 			'name'         => $status['label'] ?? null,
 			'type'         => $status['type'] ?? null,
 			'exists'       => $status !== null,
-			'holds_stock'  => !\in_array($statusId, self::J2_STOCK_RELEASING_STATUSES, true),
+			'holds_stock'  => $this->j2StatusHoldsStock($statusId),
 			'counts_as_paid' => $status !== null && \in_array((string) $status['type'], self::J2_FINALIZED_TYPES, true),
 		];
 	}

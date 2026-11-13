@@ -21,7 +21,9 @@ use Joomla\CMS\User\User;
 /**
  * Shared orientation and safety rails for every J2Commerce tool.
  *
- * Built against J2Commerce 6.6.5 (2026-10-12). This is J2Commerce SIX —
+ * Built against J2Commerce 6.6.5 (2026-10-12), re-checked against 6.6.6. Where
+ * the two differ (stock release, voucher settlement, tables) the tools ask the
+ * installed version. This is J2Commerce SIX —
  * `com_j2commerce` with `#__j2commerce_*` tables — a ground-up Joomla 5/6
  * rewrite. It is NOT J2Store 4 (`com_j2store`, `#__j2store_*`), and nothing here
  * reads or writes J2Store tables. The 6.x installer does not migrate J2Store
@@ -193,8 +195,9 @@ trait J2commerceBootTrait
 	];
 
 	/**
-	 * The only statuses that RELEASE stock. Everything else holds it —
-	 * hardwired by id, not by `orderstatus_type` (`src/Helper/InventoryHelper.php:986-996`).
+	 * The statuses that RELEASE stock in 6.6.5, hardwired by id
+	 * (`InventoryHelper::NON_HOLDING_STATUSES`). Only a fallback: j2StatusHoldsStock()
+	 * asks J2Commerce, which decides by lifecycle type from 6.6.6.
 	 */
 	private const J2_STOCK_RELEASING_STATUSES = [3, 5, 6];
 
@@ -292,6 +295,39 @@ trait J2commerceBootTrait
 		$decoded = json_decode($cache, true);
 
 		return \is_array($decoded) && !empty($decoded['version']) ? (string) $decoded['version'] : null;
+	}
+
+	/** True when the installed J2Commerce is at least $version. Unknown versions count as current. */
+	protected function j2AtLeast(string $version): bool
+	{
+		$installed = $this->j2Version();
+
+		return $installed === null || version_compare($installed, $version, '>=');
+	}
+
+	/**
+	 * Does an order in this status hold reserved stock? Asked of J2Commerce's own
+	 * `InventoryHelper::statusHoldsStock()` (since 6.5.0), because the rule moved:
+	 * 6.6.5 releases ids 3, 5 and 6; 6.6.6 releases the new, failed and cancelled
+	 * lifecycle types, whatever their ids.
+	 */
+	protected function j2StatusHoldsStock(int $statusId): bool
+	{
+		$helper = 'J2Commerce\\Component\\J2commerce\\Administrator\\Helper\\InventoryHelper';
+
+		if (class_exists($helper) && method_exists($helper, 'statusHoldsStock')) {
+			return (bool) $helper::statusHoldsStock($statusId);
+		}
+
+		return !\in_array($statusId, self::J2_STOCK_RELEASING_STATUSES, true);
+	}
+
+	/** One line on which statuses release stock, worded for the installed version. */
+	protected function j2StockRule(): string
+	{
+		return $this->j2AtLeast('6.6.6')
+			? 'Stock follows the lifecycle type: statuses of type new, failed and cancelled release it; every other status, including any the merchant created, holds it.'
+			: 'Stock follows the literal status id: only ids 3 (Failed), 5 (New) and 6 (Cancelled) release it; every other status, including any the merchant created, holds it.';
 	}
 
 	// -----------------------------------------------------------------------

@@ -27,6 +27,15 @@ use Joomla\CMS\User\User;
  * new status is a download status, `onJ2CommerceOrderStatusChange` to every
  * j2commerce plugin, and customer + admin email when `$notify`.
  *
+ * From 6.6.6 (advisory 621) it also settles coupon and voucher redemptions
+ * through `RedemptionHelper::onStatusChange()`: entering cancelled or failed
+ * credits the order's voucher value back, leaving them takes it again, and an
+ * order that starts counting is re-checked against coupon and voucher limits
+ * under a lock. We pass `$refuseShortfall = true`, as J2Commerce's own admin
+ * screens do for a merchant's change (`src/Controller/OrderController.php`),
+ * so a move that would overrun a limit is refused instead of noted. The REST
+ * endpoint passes false. 6.6.5 takes four arguments and ignores the fifth.
+ *
  * What we add around it, because the vendor's REST endpoint does not:
  *
  *   - a dry run that predicts each side effect before anything happens;
@@ -47,10 +56,14 @@ final class SetOrderStatusTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Move a J2Commerce order to another status, through J2Commerce\'s own '
-			. 'OrderModel::updateOrderStatus() — the same method its REST API uses — so every side effect '
+			. 'OrderModel::updateOrderStatus() — the same method its admin and REST API use — so every side effect '
 			. 'happens exactly as in the admin: STOCK is debited when the order enters a stock-holding status '
-			. 'and restored when it enters 3 Failed, 5 New or 6 Cancelled (once each, guarded by the order\'s '
-			. 'stock_committed flag); a HISTORY row is written; DOWNLOAD access is granted if the new status is '
+			. 'and restored when it enters one that releases stock (up to J2Commerce 6.6.5 the ids 3 Failed, '
+			. '5 New and 6 Cancelled; from 6.6.6 the types new, failed and cancelled), once each, guarded by the '
+			. 'order\'s stock_committed flag. From 6.6.6, VOUCHER value the order used is credited back when it '
+			. 'enters a cancelled or failed status and taken again when it leaves one, and a move that makes the '
+			. 'order count against a coupon or voucher limit it no longer fits is REFUSED, as in the admin. '
+			. 'A HISTORY row is written; DOWNLOAD access is granted if the new status is '
 			. 'one of the store\'s download statuses (and is never revoked later); the '
 			. 'onJ2CommerceOrderStatusChange event reaches every J2Commerce app; and, only if notify is true, '
 			. 'the customer AND the store admin are emailed. '
@@ -63,7 +76,7 @@ final class SetOrderStatusTool extends AbstractTool
 			. 'without changing anything — use it first on anything but a routine move. '
 			. 'There is no state machine: any status can go to any status. Moving to a DISABLED status is '
 			. 'refused unless allow_disabled: true. Refunds are not a status: J2Commerce records them in the '
-			. 'payment ledger, and a merchant-made "Refunded" status HOLDS stock (only ids 3, 5 and 6 release it).';
+			. 'payment ledger, and a "Refunded" status HOLDS stock and keeps voucher value spent.';
 	}
 
 	public function getInputSchema(): array
@@ -156,7 +169,8 @@ final class SetOrderStatusTool extends AbstractTool
 		)->loadResult();
 
 		[$ok, $messages, $stray] = $this->j2Run(
-			static fn () => $model->updateOrderStatus($pk, $to, $notify, $comment)
+			// true = a merchant's own change, as the admin passes it (see the class comment).
+			static fn () => $model->updateOrderStatus($pk, $to, $notify, $comment, true)
 		);
 
 		$after = $this->resolveOrder(['order_pk' => $pk]);
@@ -260,7 +274,7 @@ final class SetOrderStatusTool extends AbstractTool
 		$db        = $this->db;
 		$number    = $db->quote((string) $order['order_id']);
 		$committed = (int) $order['stock_committed'] === 1;
-		$holds     = !\in_array($to, self::J2_STOCK_RELEASING_STATUSES, true);
+		$holds     = $this->j2StatusHoldsStock($to);
 
 		$stock = ['action' => 'none'];
 
@@ -316,9 +330,50 @@ final class SetOrderStatusTool extends AbstractTool
 			'downloads' => \in_array($to, $downloadStatuses, true)
 				? ($hasDownloads ? 'Download access is GRANTED for the order\'s downloadable items (never revoked later).' : 'Download status, but the order has no downloadable items.')
 				: 'No download grant (status ' . $to . ' is not a download status).',
+			'vouchers'  => $this->predictRedemptions($order, $from, $to),
 			'event'     => 'onJ2CommerceOrderStatusChange fires to every enabled J2Commerce app (integrations may act on it).',
 			'email'     => $notify ? $this->predictEmail($to, (string) $order['user_email']) : 'No email.',
 		];
+	}
+
+	/**
+	 * What 6.6.6's RedemptionHelper will do to the order's coupons and vouchers,
+	 * from its own rules. findShortfall() is read-only, so the dry run can ask it.
+	 */
+	private function predictRedemptions(array $order, int $from, int $to): string
+	{
+		$helper = 'J2Commerce\\Component\\J2commerce\\Administrator\\Helper\\RedemptionHelper';
+
+		if (!class_exists($helper)) {
+			return 'This J2Commerce (before 6.6.6) does not settle coupons or vouchers on a status change: voucher '
+				. 'value an order used stays spent, even when it is cancelled.';
+		}
+
+		$hasVouchers = (int) $this->db->setQuery(
+			'SELECT COUNT(*) FROM ' . $this->db->quoteName($this->j2Table('orderdiscounts'))
+			. ' WHERE order_id = ' . $this->db->quote((string) $order['order_id'])
+			. ' AND discount_type = ' . $this->db->quote('voucher')
+		)->loadResult() > 0;
+
+		$parts = [];
+
+		if ($helper::entersCounting($from, $to)) {
+			$this->j2LoadLanguage();
+			$shortfall = $helper::findShortfall((object) $order);
+			$parts[]   = $shortfall === null
+				? 'The order starts counting against its coupon and voucher limits again; they still cover it.'
+				: 'REFUSED: the order would start counting against a limit it no longer fits (' . $shortfall . ').';
+		}
+
+		if ($hasVouchers && !$helper::releases($from) && $helper::releases($to)) {
+			$parts[] = 'The voucher value this order used is CREDITED back to the voucher (a disabled voucher only gets '
+				. 'a note of what it is owed).';
+		} elseif ($hasVouchers && $helper::releases($from) && !$helper::releases($to)) {
+			$parts[] = 'The voucher value credited back when the order was cancelled or failed is TAKEN again, up to '
+				. 'the voucher\'s balance; any shortfall is noted on the order.';
+		}
+
+		return $parts !== [] ? implode(' ', $parts) : 'No coupon or voucher change.';
 	}
 
 	/**

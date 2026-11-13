@@ -21,8 +21,14 @@ use Joomla\CMS\User\User;
  * (`src/Model/VoucherModel.php:649-723`): a transaction, a `SELECT … FOR UPDATE`
  * row lock so two concurrent adjustments cannot both pass the guard, a refusal
  * of any result below zero, and an append-only ledger row recording the
- * balance before and after. The vendor's REST `vouchers/:id/adjust` calls the
- * same method.
+ * balance before and after.
+ *
+ * From 6.6.6 the vendor's REST `vouchers/:id/adjust` calls
+ * `VoucherModel::adjustManually()` instead, and so do we when it exists. With
+ * no order it is the same adjustBalance(). With an order it first checks the
+ * order is placed and actually redeemed this voucher, caps a credit at what the
+ * order is still owed (so the same refund cannot be credited twice), and notes
+ * the credit on the order. On 6.6.5 we fall back to adjustBalance().
  *
  * The vendor puts no ceiling on a credit — `adjust` can mint any amount of
  * spendable money onto a bearer code. We require a reason and refuse a credit
@@ -46,7 +52,9 @@ final class AdjustVoucherBalanceTool extends AbstractTool
 			. 'so this tool refuses a credit or correction that would take the balance above the voucher\'s '
 			. 'face value unless allow_above_face_value: true is passed. '
 			. 'dry_run: true shows the before and after without writing. Use order_number to tie the adjustment '
-			. 'to an order (for example a partial refund to the voucher).';
+			. 'to an order (for example a partial refund to the voucher). From J2Commerce 6.6.6 an order-linked '
+			. 'adjustment goes through VoucherModel::adjustManually(): the order must have redeemed this voucher, '
+			. 'a credit is capped at what the order is still owed, and the credit is noted on the order.';
 	}
 
 	public function getInputSchema(): array
@@ -160,18 +168,39 @@ final class AdjustVoucherBalanceTool extends AbstractTool
 			]);
 		}
 
-		[$result, $messages] = $this->j2Run(
-			static fn () => $model->adjustBalance($id, $type, $amount, $reason, $note, $order)
-		);
+		$manual = method_exists($model, 'adjustManually');
+
+		try {
+			[$result, $messages] = $this->j2Run(
+				static fn () => $manual
+					? $model->adjustManually($id, $type, $amount, $reason, $note, $order)
+					: $model->adjustBalance($id, $type, $amount, $reason, $note, $order)
+			);
+		} catch (\InvalidArgumentException $e) {
+			// adjustManually() refuses an order that did not redeem this voucher, or one owed nothing.
+			return ToolResult::json([
+				'ok'      => false,
+				'error'   => 'J2Commerce refused the adjustment: ' . $e->getMessage() . ' Nothing was written.',
+				'balance' => $before,
+			], true);
+		}
+
+		// adjustManually() returns {amount, balance}; adjustBalance() returns the new balance.
+		$newBalance = round((float) (\is_array($result) ? ($result['balance'] ?? 0) : $result), 5);
 
 		$response = [
 			'ok'           => true,
 			'voucher_id'   => $id,
 			'type'         => $type,
-			'balance'      => ['before' => $before, 'after' => round((float) $result, 5)],
-			'verified'     => abs(round((float) $model->getRemainingBalance($id), 5) - round((float) $result, 5)) < 0.00001,
+			'balance'      => ['before' => $before, 'after' => $newBalance],
+			'verified'     => abs(round((float) $model->getRemainingBalance($id), 5) - $newBalance) < 0.00001,
 			'ledger_entry' => 'Appended to #__j2commerce_voucheradjustments with the reason; the face value was not changed.',
 		];
+
+		if (\is_array($result) && isset($result['amount']) && abs((float) $result['amount'] - abs($amount)) > 0.00001) {
+			$response['amount_applied'] = round((float) $result['amount'], 5);
+			$response['amount_note']    = 'J2Commerce capped the credit at what order ' . $order . ' is still owed.';
+		}
 
 		if ((int) $v['enabled'] !== 1) {
 			$response['note'] = 'This voucher is disabled, so the balance cannot be spent until it is enabled.';

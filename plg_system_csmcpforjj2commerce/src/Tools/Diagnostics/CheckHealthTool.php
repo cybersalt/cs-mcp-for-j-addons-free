@@ -88,8 +88,8 @@ final class CheckHealthTool extends AbstractTool
 			. 'enabled products priced at zero; oversold variants (stock below zero — J2Commerce stores the '
 			. 'signed truth and never clamps); coupons whose value_type the discount maths does not '
 			. 'recognise (they silently discount nothing); orders pointing at an order status that no longer '
-			. 'exists; custom order statuses (they HOLD stock, because only status ids 3, 5 and 6 release '
-			. 'it); a base currency missing from the currency table or not at rate 1; failed or dead '
+			. 'exists; custom order statuses (they HOLD stock unless J2Commerce 6.6.6+ sees a new, failed or '
+			. 'cancelled type; up to 6.6.5 only status ids 3, 5 and 6 release it); a base currency missing from the currency table or not at rate 1; failed or dead '
 			. 'integration-queue items; and the disabled-plugin conditions that break product saving. '
 			. 'Each finding names the tool or J2Commerce screen that fixes it. Repairs of the vendor\'s own '
 			. 'checks belong on J2Commerce\'s Database Health screen, which previews destructive fixes.';
@@ -291,7 +291,7 @@ final class CheckHealthTool extends AbstractTool
 
 		foreach ($this->j2StatusMap() as $id => $status) {
 			if (!$status['core']) {
-				$custom[] = ['id' => $id, 'name' => $status['label'], 'type' => $status['type']];
+				$custom[] = ['id' => $id, 'name' => $status['label'], 'type' => $status['type'], 'holds_stock' => $this->j2StatusHoldsStock($id)];
 			}
 		}
 
@@ -303,10 +303,9 @@ final class CheckHealthTool extends AbstractTool
 			'count'  => \count($custom),
 		] + ($custom === [] ? [] : [
 			'statuses' => $custom,
-			'detail'   => 'Stock release is hardwired to status ids 3, 5 and 6 '
-				. '(src/Helper/InventoryHelper.php:986-996), not to orderstatus_type. Every custom status '
-				. 'therefore HOLDS stock — a merchant\'s own "Refunded" or "Returned" status never puts stock '
-				. 'back. Move such orders through Cancelled (6) if the stock should return.',
+			'detail'   => $this->j2StockRule() . ' So a merchant\'s own "Refunded" or "Returned" status '
+				. 'never puts stock back; holds_stock shows each one. Move such orders through Cancelled if the '
+				. 'stock should return.',
 		]);
 
 		// 8. Base currency.
@@ -361,8 +360,8 @@ final class CheckHealthTool extends AbstractTool
 			'source' => 'cybersalt',
 			'status' => \in_array($p . 'j2commerce_email_log', $this->j2AllTables(), true) ? 'ok' : 'info',
 		] + (\in_array($p . 'j2commerce_email_log', $this->j2AllTables(), true) ? [] : [
-			'detail' => 'EmailHelper logs sends to #__j2commerce_email_log (src/Helper/EmailHelper.php:2543-2566), '
-				. 'but no install or update SQL in J2Commerce 6.6.5 creates it, so email logging fails silently. '
+			'detail' => 'EmailHelper logs sends to #__j2commerce_email_log, '
+				. 'but no install or update SQL in J2Commerce (checked up to 6.6.6) creates it, so email logging fails silently. '
 				. 'This is a vendor bug, not a fault on this site; order emails themselves are unaffected.',
 		]);
 

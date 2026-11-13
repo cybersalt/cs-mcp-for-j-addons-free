@@ -278,10 +278,9 @@ final class SetConfigTool extends AbstractTool
 		];
 
 		if (isset($changes['enable_inventory'])) {
-			$response['inventory_note'] = 'In J2Commerce 6.6.5 this switch does much less than its label '
+			$response['inventory_note'] = 'In J2Commerce 6.6.5 and 6.6.6 this switch does much less than its label '
 				. 'suggests. Stock checks and order stock debits/credits ignore it: InventoryHelper::isManagingStock() '
-				. 'and ProductHelper::managingStock() both hardcode it on with a "not yet wired" TODO '
-				. '(src/Helper/InventoryHelper.php:79-99, ProductHelper.php:2640-2650), so each variant\'s own '
+				. 'and ProductHelper::managingStock() both hardcode it on with a "not yet wired" TODO, so each variant\'s own '
 				. 'manage_stock decides. What enable_inventory DOES gate is the automatic cancellation of unpaid '
 				. 'orders after hold_stock minutes (src/Model/OrdersModel.php:893-900, '
 				. 'plg_system_j2commerce J2Commerce.php:1269) and the inventory fields in two admin variant forms.';

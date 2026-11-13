@@ -35,8 +35,8 @@ final class CreateCouponTool extends AbstractTool
 			. 'manufacturer_ids, user_ids) are checked to exist, and a product or category list too long for '
 			. 'its 255-character column is refused rather than silently cut mid-id. Validity dates are UTC. '
 			. 'Coupons are only offered at checkout when the store\'s enable_coupon setting is on — the result '
-			. 'says so if it is off. J2Commerce\'s per-group coupon restriction is not offered: 6.6.5 has no '
-			. 'column to store it in, so it can never take effect.';
+			. 'says so if it is off. J2Commerce\'s per-group coupon restriction is not offered: J2Commerce '
+			. '(6.6.5 and 6.6.6) has no column to store it in, so it can never take effect.';
 	}
 
 	public function getInputSchema(): array

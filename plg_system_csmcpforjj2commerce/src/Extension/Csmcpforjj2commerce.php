@@ -18,7 +18,7 @@ use Joomla\Event\SubscriberInterface;
 
 /**
  * J2Commerce MCP add-on. Built against J2Commerce 6.6.5 (2026-10-12) on
- * Joomla 6.2.0.
+ * Joomla 6.2.0; re-checked against 6.6.6 (2026-11-11, security advisory 621).
  *
  * WHY THIS ADD-ON IS FREE. J2Commerce 6 has no capability-gated Pro edition.
  * `version.php` defines a `J2COMMERCE_PRO` constant, but `isPro()` gates no
@@ -50,7 +50,9 @@ use Joomla\Event\SubscriberInterface;
  *      moves stock, writes history, grants downloads, fires
  *      `onJ2CommerceOrderStatusChange` and optionally emails — and it is exactly
  *      what J2Commerce's own REST endpoint calls. We call it too. There is no
- *      state machine, and stock release is hardwired to status ids 3, 5 and 6.
+ *      state machine. Stock release is hardwired to status ids 3, 5 and 6 up
+ *      to 6.6.5 and follows the status type from 6.6.6, which also settles
+ *      voucher value on cancel/reopen (RedemptionHelper).
  *
  *   4. TAX AND GEOZONE SAVES WIPE AND REINSERT. Saving a geozone or tax profile
  *      deletes every rule and reinserts from the payload, with no transaction

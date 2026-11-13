@@ -35,18 +35,24 @@ final class ListTablesTool extends AbstractTool
 		'voucheradjustments', 'weights', 'zones',
 	];
 
+	/** Tables the install SQL gained after 6.6.5, by the version that added them. */
+	private const ADDED_TABLES = [
+		'email_optouts' => '6.6.6',
+	];
+
 	/**
-	 * Tables 6.6.5 code references that no SQL in the package creates. Their
-	 * owners are apps or older versions; their absence is normal.
+	 * Tables J2Commerce code references that no SQL in the package creates
+	 * (checked in 6.6.5 and 6.6.6). Their owners are apps or older versions;
+	 * their absence is normal.
 	 */
 	private const REFERENCED_NOT_INSTALLED = [
-		'email_log'               => 'EmailHelper writes send logs here (src/Helper/EmailHelper.php:2543-2566); nothing creates it, so email logging fails silently.',
+		'email_log'               => 'EmailHelper writes send logs here; nothing creates it, so email logging fails silently.',
 		'migrator_idmap'          => 'Created by the separate J2Store-to-J2Commerce migrator; residue after a migration.',
 		'builder_projects'        => 'Used by the layout builder (BuilderProjectTable); not created by the core install SQL.',
-		'storeprofiles'           => 'Referenced in 6.6.5 code but not created by the core install SQL.',
+		'storeprofiles'           => 'Referenced in J2Commerce code but not created by the core install SQL.',
 		'configurations'          => 'The J2Store-era configuration table name, still referenced in code. J2Commerce 6 stores its configuration in #__extensions.params.',
-		'subscriptions'           => 'Referenced in 6.6.5 code but not created by the core install SQL; orders.subscription_id points at it.',
-		'appmarketplace_profiles' => 'Referenced in 6.6.5 code but not created by the core install SQL.',
+		'subscriptions'           => 'Referenced in J2Commerce code but not created by the core install SQL; orders.subscription_id points at it.',
+		'appmarketplace_profiles' => 'Referenced in J2Commerce code but not created by the core install SQL.',
 	];
 
 	public function getName(): string { return 'list_j2commerce_tables'; }
@@ -54,11 +60,11 @@ final class ListTablesTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'List every #__j2commerce_* table on this site with its row count, and say which ones '
-			. 'query_j2commerce_table will read. J2Commerce 6.6.5 installs 58 tables. Five are refused by the '
-			. 'generic reader: carts and cartitems (live session-bound shopper state), paymentprofiles '
-			. '(stored-card references), geocode_cache (customer addresses) and uploads (customer files '
-			. 'mapped to orders). Tables present on this database but not in the 6.6.5 install SQL are '
-			. 'flagged — usually #__j2commerce_migrator_idmap left by the J2Store migrator. Legacy '
+			. 'query_j2commerce_table will read. J2Commerce 6.6.5 installs 58 tables; 6.6.6 adds email_optouts '
+			. '(59). Five are refused by the generic reader: carts and cartitems (live session-bound shopper '
+			. 'state), paymentprofiles (stored-card references), geocode_cache (customer addresses) and uploads '
+			. '(customer files mapped to orders). Tables present on this database but not in the core install '
+			. 'SQL are flagged — usually #__j2commerce_migrator_idmap left by the J2Store migrator. Legacy '
 			. '#__j2store_* tables are reported separately and are never read by these tools. Read-only.';
 	}
 
@@ -108,16 +114,24 @@ final class ListTablesTool extends AbstractTool
 				'readable' => !\in_array($short, self::J2_READ_DENYLIST, true),
 			];
 
-			if (!\in_array($bare, self::INSTALL_TABLES, true)) {
+			if (!\in_array($bare, self::INSTALL_TABLES, true) && !isset(self::ADDED_TABLES[$bare])) {
 				$entry['not_in_core_install'] = self::REFERENCED_NOT_INSTALLED[$bare]
-					?? 'Not created by the J2Commerce 6.6.5 core install SQL — most likely added by an app.';
+					?? 'Not created by the J2Commerce core install SQL — most likely added by an app.';
 			}
 
 			$tables[] = $entry;
 			$present[] = $bare;
 		}
 
-		$missing = array_values(array_diff(self::INSTALL_TABLES, $present));
+		$expected = self::INSTALL_TABLES;
+
+		foreach (self::ADDED_TABLES as $table => $since) {
+			if ($this->j2AtLeast($since)) {
+				$expected[] = $table;
+			}
+		}
+
+		$missing = array_values(array_diff($expected, $present));
 
 		$response = [
 			'ok'     => true,
@@ -127,7 +141,7 @@ final class ListTablesTool extends AbstractTool
 
 		if ($missing !== []) {
 			$response['missing_core_tables'] = array_map(static fn (string $t): string => '#__j2commerce_' . $t, $missing);
-			$response['missing_note'] = 'The 6.6.5 install SQL creates these and they are absent. Either this is '
+			$response['missing_note'] = 'This J2Commerce version\'s install SQL creates these and they are absent. Either this is '
 				. 'an older J2Commerce, or an install/update did not finish. Reinstall pkg_j2commerce.';
 		}
 

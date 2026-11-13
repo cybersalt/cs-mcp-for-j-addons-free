@@ -35,7 +35,7 @@ final class GetComponentInfoTool extends AbstractTool
 		'content/j2commerce'     => 'THE product save path. A product is created and updated only from an article save through this plugin (onContentAfterSave -> ProductService::saveProduct). If disabled, editing a product in the article editor silently saves nothing.',
 		'task/j2commerce'        => 'Scheduled tasks: unpaid-order cleanup, cart garbage collection, currency updates, the integration queue.',
 		'webservices/j2commerce' => 'J2Commerce\'s own REST routes under /api/index.php/v1/j2commerce/*. Not needed by these MCP tools.',
-		'actionlog/j2commerce'   => 'Joomla action-log entries. Note it listens for onJ2CommerceAfterOrderStatusChange, which nothing in 6.6.5 fires, so status changes are never logged.',
+		'actionlog/j2commerce'   => 'Joomla action-log entries for carts, checkout, orders, vouchers and products.',
 		'user/j2commerce'        => 'Adds J2Commerce address fields to the Joomla registration and user forms and saves them as an address on user save. Disabled by default; optional.',
 		'finder/j2commerce'      => 'Smart Search indexing of products.',
 		'installer/j2commerce'   => 'Adds the download ID to update requests for J2Commerce\'s paid apps (onInstallerBeforePackageDownload).',
@@ -80,10 +80,12 @@ final class GetComponentInfoTool extends AbstractTool
 
 		$this->j2RequireAccess($actor, 'j2commerce.viewsetup');
 
+		// The MCP add-ons' own elements (csmcpforj…) contain "j2commerce" but are not J2Commerce.
 		$rows = $this->db->setQuery(
 			$this->db->getQuery(true)
 				->select([
 					$this->db->quoteName('extension_id'),
+					$this->db->quoteName('package_id'),
 					$this->db->quoteName('type'),
 					$this->db->quoteName('element'),
 					$this->db->quoteName('folder'),
@@ -96,8 +98,19 @@ final class GetComponentInfoTool extends AbstractTool
 					$this->db->quoteName('element') . ' LIKE ' . $this->db->quote('%j2commerce%'),
 					$this->db->quoteName('folder') . ' = ' . $this->db->quote('j2commerce'),
 				]) . ')')
+				->where($this->db->quoteName('element') . ' NOT LIKE ' . $this->db->quote('csmcpforj%'))
 				->order($this->db->quoteName('type') . ', ' . $this->db->quoteName('folder') . ', ' . $this->db->quoteName('element'))
 		)->loadAssocList() ?: [];
+
+		// Only pkg_j2commerce's own members must share a version. Paid apps from
+		// j2commerce.com sit in the same plugin group with version numbers of their own.
+		$packageId = 0;
+
+		foreach ($rows as $row) {
+			if ((string) $row['type'] === 'package' && (string) $row['element'] === 'pkg_j2commerce') {
+				$packageId = (int) $row['extension_id'];
+			}
+		}
 
 		$members = [];
 		$group   = [];
@@ -108,6 +121,7 @@ final class GetComponentInfoTool extends AbstractTool
 			$manifest = json_decode((string) $row['manifest_cache'], true);
 			$version  = \is_array($manifest) ? (string) ($manifest['version'] ?? '') : '';
 			$enabled  = (int) $row['enabled'] === 1;
+			$inPackage = $packageId === 0 || (int) $row['package_id'] === $packageId || (int) $row['extension_id'] === $packageId;
 
 			$entry = [
 				'extension_id' => (int) $row['extension_id'],
@@ -118,7 +132,11 @@ final class GetComponentInfoTool extends AbstractTool
 				'version'      => $version,
 			];
 
-			if ($version !== '') {
+			if ($packageId !== 0) {
+				$entry['in_pkg_j2commerce'] = $inPackage;
+			}
+
+			if ($version !== '' && $inPackage) {
 				$versions[$version] = true;
 			}
 
@@ -132,6 +150,11 @@ final class GetComponentInfoTool extends AbstractTool
 
 			if ((string) $row['type'] === 'plugin' && isset(self::PLUGIN_ROLES[$key])) {
 				$entry['role'] = self::PLUGIN_ROLES[$key];
+
+				if ($key === 'actionlog/j2commerce' && !$this->j2AtLeast('6.6.6')) {
+					$entry['role'] .= ' Before 6.6.6 it listens for onJ2CommerceAfterOrderStatusChange, which nothing '
+						. 'fires, so status changes are never logged. 6.6.6 fixed this.';
+				}
 
 				if (!$enabled && \in_array($key, ['system/j2commerce', 'content/j2commerce'], true)) {
 					$warnings[] = 'plg_' . str_replace('/', '_', $key) . ' is DISABLED. ' . self::PLUGIN_ROLES[$key];
@@ -152,12 +175,15 @@ final class GetComponentInfoTool extends AbstractTool
 		$params = $this->j2RawParams();
 		$config = Factory::getApplication()->getConfig();
 		$liveSite = trim((string) $config->get('live_site', ''));
+		$emailSiteUrl = trim((string) ($params['email_site_url'] ?? ''));
 
-		if ($liveSite === '') {
-			$warnings[] = 'live_site is empty in configuration.php. J2Commerce builds email links from '
-				. 'live_site and otherwise from Uri::root(), stripping only /administrator '
-				. '(src/Helper/EmailHelper.php:3576-3598). Customer emails triggered by an API or MCP call '
-				. '(set_j2commerce_order_status with notify) are worth checking for /api/ in their links.';
+		if ($liveSite === '' && $emailSiteUrl === '') {
+			$warnings[] = 'live_site is empty in configuration.php' . ($this->j2AtLeast('6.6.6') ? ' and J2Commerce\'s '
+				. 'Email Site URL option is not set' : '') . '. J2Commerce then builds email links from '
+				. 'Uri::root(), stripping only /administrator (EmailHelper). Customer emails triggered by an API or '
+				. 'MCP call (set_j2commerce_order_status with notify) are worth checking for /api/ in their links.'
+				. ($this->j2AtLeast('6.6.6') ? ' Setting Email Site URL (J2Commerce -> Options) fixes this without '
+				. 'touching configuration.php, and basket reminders are only sent when one of the two is set.' : '');
 		}
 
 		$response = [
@@ -173,7 +199,7 @@ final class GetComponentInfoTool extends AbstractTool
 			],
 			'joomla_version'     => JVERSION,
 			'php_version'        => PHP_VERSION,
-			'requirements'       => 'J2Commerce 6.6.5 requires PHP 8.3 and Joomla 6.0 (script.j2commerce.php:77-78).',
+			'requirements'       => 'J2Commerce 6.6 requires PHP 8.3 and Joomla 6.0 (script.j2commerce.php, unchanged in 6.6.5 and 6.6.6).',
 			'store'              => [
 				'name'             => (string) ($params['store_name'] ?? ''),
 				'admin_email'      => (string) ($params['admin_email'] ?? ''),
@@ -182,11 +208,12 @@ final class GetComponentInfoTool extends AbstractTool
 				'zone_id'          => (int) ($params['zone_id'] ?? 0),
 				'prices_include_tax' => (string) ($params['config_including_tax'] ?? '0') === '1',
 				'inventory_enabled'  => (string) ($params['enable_inventory'] ?? '0') === '1',
-				'inventory_note'     => 'In 6.6.5 enable_inventory only gates the automatic cancellation of unpaid orders; stock checks and order stock movements follow each variant\'s manage_stock regardless (InventoryHelper::isManagingStock hardcodes the global switch on).',
+				'inventory_note'     => 'In 6.6.5 and 6.6.6 enable_inventory only gates the automatic cancellation of unpaid orders; stock checks and order stock movements follow each variant\'s manage_stock regardless (InventoryHelper::isManagingStock hardcodes the global switch on).',
 				'guest_checkout'     => (string) ($params['allow_guest_checkout'] ?? '0') === '1',
 				'catalog_mode'       => (string) ($params['catalog_mode'] ?? '0') === '1',
 			],
 			'live_site'          => $liveSite,
+			'email_site_url'     => $emailSiteUrl,
 			'package_members'    => $members,
 			'j2commerce_plugins' => $group,
 			'legacy_j2store'     => $legacy,

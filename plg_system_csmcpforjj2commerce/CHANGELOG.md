@@ -1,5 +1,18 @@
 # MCP for J2Commerce — Changelog
 
+## 🚀 Version 1.0.3 (November 12, 2026)
+
+Checked against **J2Commerce 6.6.6** (security advisory 621), which changed how orders handle stock and gift vouchers.
+
+- 🐛 **No more false "partial update" warning.** `get_j2commerce_component_info` counted this add-on as part of J2Commerce, so every site was told its package members were out of step and to reinstall J2Commerce. It now leaves this add-on out and compares only the members of the J2Commerce package, so a paid J2Commerce app with its own version number doesn't set it off either. Each member now says whether it belongs to the package.
+- 🔒 **Order status changes follow J2Commerce 6.6.6's voucher and coupon rules.** From 6.6.6, cancelling an order gives back the voucher value it used, and reopening it takes it again. A move that would push an order past a coupon's use limit or a voucher's balance is now refused, as it is in J2Commerce's own admin. The dry run says what will happen to the order's vouchers before anything changes.
+- 📦 **Stock predictions follow the installed J2Commerce.** 6.6.6 releases stock for statuses of type New, Failed and Cancelled; 6.6.5 used the fixed ids 3, 5 and 6. `list_j2commerce_order_statuses`, the order tools and the status-change dry run now ask J2Commerce which statuses hold stock, so they're right on either version.
+- 🎁 **Order-linked voucher adjustments get J2Commerce's own checks on 6.6.6.** With an order number, `adjust_j2commerce_voucher_balance` now refuses an order that didn't use the voucher and caps a credit at what that order is still owed, so the same refund can't be credited twice. The credit is noted on the order.
+- 🗂️ **Knows 6.6.6's new table.** `list_j2commerce_tables` no longer flags `#__j2commerce_email_optouts` (basket-reminder opt-outs) as an unknown table, and expects it on 6.6.6.
+- 📧 **The email-link warning knows about Email Site URL.** 6.6.6 added an Email Site URL option for the links in store emails. The warning about an empty `live_site` now names that option and stays quiet when it's set.
+- 📝 **Version wording updated.** Texts that said "in 6.6.5" now say which versions they were checked on. The action-log note is shown only before 6.6.6, which fixed that J2Commerce bug.
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.0.2 (November 4, 2026)
 
 - 🔒 **The table reader now follows J2Commerce's permissions.** `query_j2commerce_table` only asked for View Setup, so an account refused View Orders could still read orders and customer addresses through it. Each table now needs what its own screen needs: View Orders for orders, coupons and vouchers, View Orders and Export Orders for addresses, View Products for the catalogue, View Setup for store setup, and both View Orders and View Setup for anything else.

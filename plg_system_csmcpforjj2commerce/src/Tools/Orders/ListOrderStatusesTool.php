@@ -24,10 +24,12 @@ use Joomla\CMS\User\User;
  * `orderstatus_type` (`src/Helper/OrderStatusHelper.php:52-74`); the task plugin
  * says outright that "status ids are install-dependent … never by a literal id"
  * (`plg_task_j2commerce/src/Extension/J2Commerce.php:139-140`). Stock does the
- * opposite: it releases on the literal ids 3, 5 and 6
- * (`src/Helper/InventoryHelper.php:986-996`). On a fresh install the seeded ids
+ * opposite in 6.6.5: it releases on the literal ids 3, 5 and 6
+ * (`InventoryHelper::NON_HOLDING_STATUSES`). On a fresh install the seeded ids
  * line up, so nobody notices. On a store whose statuses were renumbered — a
  * migration, a re-seed — they can diverge, and this tool is where that shows.
+ * 6.6.6 moved stock onto the type as well (`InventoryHelper::NON_HOLDING_TYPES`),
+ * so there the two agree and only the id/type check below still matters.
  */
 final class ListOrderStatusesTool extends AbstractTool
 {
@@ -43,12 +45,13 @@ final class ListOrderStatusesTool extends AbstractTool
 		return 'List J2Commerce order statuses with id, name, lifecycle type, core flag, enabled flag, how many '
 			. 'orders are in each, and the two behaviours that matter before moving an order: whether the '
 			. 'status HOLDS stock and whether it counts as PAID. '
-			. 'These come from two different mechanisms. Paid, coupon usage and voucher balance follow the '
-			. 'lifecycle type — complete, approved, shipped and delivered count as paid. Stock follows the '
-			. 'literal status id: only ids 3 (Failed), 5 (New) and 6 (Cancelled) release stock, and every other '
-			. 'status, including any the merchant created, holds it. So a custom "Refunded" or "Returned" status '
-			. 'never puts stock back. The tool flags any status whose id and type disagree with the seeded '
-			. 'layout, because then stock and payment logic will contradict each other. '
+			. 'Paid, coupon usage and voucher balance follow the lifecycle type — complete, approved, shipped '
+			. 'and delivered count as paid. Stock depends on the J2Commerce version: up to 6.6.5 only the '
+			. 'literal ids 3 (Failed), 5 (New) and 6 (Cancelled) release it; from 6.6.6 the types new, failed '
+			. 'and cancelled release it. Every other status, including any the merchant created, holds stock, '
+			. 'so a custom "Refunded" or "Returned" status never puts stock back. holds_stock is J2Commerce\'s '
+			. 'own answer for the installed version. The tool flags any status whose id and type disagree with '
+			. 'the seeded layout, because on 6.6.5 stock and payment logic then contradict each other. '
 			. 'There is no status state machine in J2Commerce: any status can move to any other, including a '
 			. 'disabled one. Read-only; there is deliberately no status-editing tool.';
 	}
@@ -79,8 +82,11 @@ final class ListOrderStatusesTool extends AbstractTool
 		$out      = [];
 		$warnings = [];
 
+		// From 6.6.6 stock follows the type too, so an id/type mismatch no longer splits them.
+		$typeRulesStock = $this->j2AtLeast('6.6.6');
+
 		foreach ($this->j2StatusMap() as $id => $s) {
-			$holds = !\in_array($id, self::J2_STOCK_RELEASING_STATUSES, true);
+			$holds = $this->j2StatusHoldsStock($id);
 			$type  = $s['type'];
 
 			$entry = [
@@ -104,8 +110,8 @@ final class ListOrderStatusesTool extends AbstractTool
 					. 'it HOLDS stock. Orders moved here keep their stock reserved.';
 			}
 
-			if (!$holds && isset(self::SEEDED_TYPES[$id]) && $type !== self::SEEDED_TYPES[$id]) {
-				$warnings[] = 'Status ' . $id . ' "' . $s['label'] . '" RELEASES stock (J2Commerce hardwires ids 3, 5, 6) '
+			if (!$holds && !$typeRulesStock && isset(self::SEEDED_TYPES[$id]) && $type !== self::SEEDED_TYPES[$id]) {
+				$warnings[] = 'Status ' . $id . ' "' . $s['label'] . '" RELEASES stock (this J2Commerce releases ids 3, 5 and 6) '
 					. 'but its type is ' . ($type ?? 'none') . ', not ' . self::SEEDED_TYPES[$id] . '. Stock and '
 					. 'payment logic disagree about this status.';
 			}
@@ -126,7 +132,7 @@ final class ListOrderStatusesTool extends AbstractTool
 		}
 
 		$response['rules'] = [
-			'stock'      => 'Only status ids 3, 5 and 6 release stock (src/Helper/InventoryHelper.php:986-996). All others hold it.',
+			'stock'      => $this->j2StockRule(),
 			'paid'       => 'Types complete, approved, shipped and delivered count as paid (src/Helper/OrderStatusHelper.php:69-74).',
 			'transitions' => 'Unrestricted. Any status to any status, enabled or not.',
 		];
