@@ -276,7 +276,13 @@ trait OperationRunTrait
 					return [['backup_name must be a plain folder name from list_stageit_backups.'], [], []];
 				}
 
-				if (!is_dir($cli->backupRoot() . '/' . $name)) {
+				// StageIt's own rule (stageIt::_safeBackupFolder()): the folder, links
+				// resolved, must sit directly inside stgbackups/. Checked here too so
+				// "." or a link to elsewhere is refused before anything runs.
+				$root = realpath($cli->backupRoot());
+				$real = realpath($cli->backupRoot() . '/' . $name);
+
+				if ($root === false || $real === false || !is_dir($real) || \dirname($real) !== $root) {
 					return [['There is no backup "' . $name . '" in ' . $cli->backupRoot() . '/. Use list_stageit_backups.'], [], []];
 				}
 

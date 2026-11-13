@@ -1,5 +1,13 @@
 # MCP for StageIt — Changelog
 
+## 🚀 Version 1.1.1 (November 12, 2026)
+
+- 🔒 **Security hardening.** `restore_stageit_backup` now checks the backup name itself, by the same rule StageIt uses, and refuses anything else before a single step runs.
+- 📝 **`get_stageit_prechecks` says what it touches.** Like StageIt's own dashboard, its file-permission check copies `LICENSE.txt` into the staging folder; the tool's description now says so.
+- ✅ **Tested with StageIt 6.6.4 on Joomla 6.1 and StageIt 5.9.4 on Joomla 5.4**: build, push, restore and remove, including a restore on a site whose database has linked tables, and the permission checks with Super User, Administrator and Manager accounts.
+- 📦 The package now includes `LICENSE.txt`.
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.1.0 (November 5, 2026)
 
 Brings the add-on up to date with **StageIt 6.4.0 and later on Joomla 6** (and 5.8.0+ on Joomla 5), using

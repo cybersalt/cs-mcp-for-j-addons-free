@@ -28,7 +28,7 @@ use Joomla\Event\SubscriberInterface;
  * bounded by a time-budget so each MCP call returns within the PHP
  * execution ceiling.
  *
- * v1.0.0 ships:
+ * Tools:
  *
  *   Status (3): get_stageit_status, get_stageit_prechecks, list_stageit_backups
  *
@@ -38,8 +38,8 @@ use Joomla\Event\SubscriberInterface;
  *   more calls, which the agent then passes to continue_stageit_<op>
  *   repeatedly until done=true.
  *
- * Settings / logs / individual-backup housekeeping tools are v1.1 — see
- * TODO.md in this plugin folder.
+ * Every tool needs StageIt's own permission on top of MCP for J's; see
+ * StageItBootTrait::stageitRefusal().
  */
 final class Csmcpforjstageit extends CMSPlugin implements SubscriberInterface
 {

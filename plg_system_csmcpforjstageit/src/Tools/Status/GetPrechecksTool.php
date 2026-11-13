@@ -23,7 +23,8 @@ use Joomla\CMS\User\User;
  *
  * Same source-of-truth StageIt's admin dashboard uses (stageIt::_prechecks
  * with $showerror=1). If prechecks fail, the deploy tool will fail too —
- * run this before firing a big operation.
+ * run this before firing a big operation. The permission check is a real
+ * copy (vbAssist::_checkFile), as on the dashboard, so the description says so.
  */
 final class GetPrechecksTool extends AbstractTool
 {
@@ -37,7 +38,9 @@ final class GetPrechecksTool extends AbstractTool
 			. 'file permissions / PHP version / required extensions). Returns each check '
 			. 'with pass/fail + measured value. Same battery StageIt\'s admin dashboard '
 			. 'runs. If any check fails, deploy/sync/remove/restore-backup will fail too — '
-			. 'call this before firing a long-runner. No input required.';
+			. 'call this before firing a long-runner. No input required. Like StageIt\'s dashboard, '
+			. 'the file-permission check copies LICENSE.txt into the staging folder (creating '
+			. '<docroot>/stageit/ if it is missing); nothing else on the site is changed.';
 	}
 
 	public function getInputSchema(): array
