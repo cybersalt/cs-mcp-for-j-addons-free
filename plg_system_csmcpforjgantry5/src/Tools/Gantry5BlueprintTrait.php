@@ -37,6 +37,25 @@ trait Gantry5BlueprintTrait
 	/** Field types whose stored value must be one of the blueprint's options. */
 	private const G5_STRICT_OPTION_TYPES = ['select.select', 'input.radios'];
 
+	/** CSS Color Module 4 named colours, plus transparent. */
+	private const G5_CSS_COLOUR_NAMES = ['transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black',
+		'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue',
+		'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki',
+		'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue',
+		'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue',
+		'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green',
+		'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen',
+		'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey',
+		'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue',
+		'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid',
+		'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred',
+		'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange',
+		'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru',
+		'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon',
+		'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow',
+		'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke',
+		'yellow', 'yellowgreen'];
+
 	// -----------------------------------------------------------------------
 	// Finding blueprints
 	// -----------------------------------------------------------------------
@@ -447,6 +466,15 @@ trait Gantry5BlueprintTrait
 			}
 		}
 
+		// Colour fields have no blueprint pattern, and a value Gantry's SCSS compiler cannot
+		// read stops every page using the outline with a compile error (HTTP 500).
+		if ($type === 'input.colorpicker' && $string !== '' && !$this->g5IsCssColour($string)) {
+			throw new \InvalidArgumentException(
+				$key . ' must be a colour Gantry can compile: #rrggbb, rgba(r, g, b, a) with 0-255 channels and an alpha of 0, 1 or 0.x, '
+				. '"transparent" or a CSS colour name (#rgb, rgb() and hsl() are not). Got "' . $string . '". Every page using this outline would fail to compile.'
+			);
+		}
+
 		// The blueprint `pattern` is an HTML5 pattern attribute: it must match the whole value.
 		if ($field['pattern'] !== null && $string !== '') {
 			$regex = '/^(?:' . str_replace('/', '\/', $field['pattern']) . ')$/u';
@@ -457,6 +485,28 @@ trait Gantry5BlueprintTrait
 		}
 
 		return $string;
+	}
+
+	/**
+	 * A colour Gantry passes to SCSS as a colour (Component/Stylesheet/CssCompiler.php setVariables()):
+	 * #rrggbb (its regex anchors only the start, so #rrggbbaa passes too), rgba() with 0-255 channels and
+	 * an alpha of 0, 1 or 0.x, or a colour name. Anything else it quotes as a string, and Helium's colour
+	 * functions then stop the compile. #rgb, rgb() and hsl() are quoted, so they are refused here.
+	 */
+	protected function g5IsCssColour(string $value): bool
+	{
+		$v      = strtolower(trim($value));
+		$byte   = '\s*(0|[1-9]\d?|1\d\d?|2[0-4]\d|25[0-5])\s*';
+
+		if (preg_match('/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/', $v)) {
+			return true;
+		}
+
+		if (preg_match('/^rgba\(' . $byte . ',' . $byte . ',' . $byte . ',\s*(0\.[0-9]+|[01])\s*\)$/', $v)) {
+			return true;
+		}
+
+		return \in_array($v, self::G5_CSS_COLOUR_NAMES, true);
 	}
 
 	/** Keyvalue and collection item values: nested arrays of strings only. */

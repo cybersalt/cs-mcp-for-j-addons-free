@@ -141,7 +141,22 @@ final class UpdateParticleModuleTool extends AbstractTool
 			$this->g5SetPath($settings, $path, $value);
 		}
 
-		$this->g5GuardTwig($actor, $fields, array_keys($changes), $settings['twig'] ?? null, 'This ' . $type . ' particle module');
+		// A module that does not set twig itself takes it from the particle defaults of
+		// whichever outline the page uses, so it counts as on if any outline has it on.
+		$twigAfter = $settings['twig'] ?? null;
+
+		if ($twigAfter === null && isset($fields['twig']) && !$actor->authorise('core.admin')) {
+			foreach ($this->g5Outlines($theme) as $outline) {
+				$inherited = $this->g5ParticleDefaults($theme, $outline, $type, $blueprint)['data']['twig'] ?? null;
+
+				if ($inherited !== null && $inherited !== false && (string) $inherited !== '0' && (string) $inherited !== '') {
+					$twigAfter = $inherited;
+					break;
+				}
+			}
+		}
+
+		$this->g5GuardTwig($actor, $fields, array_keys($changes), $twigAfter, 'This ' . $type . ' particle module');
 
 		// Gantry's own save always stores enabled (Particle::validate(): def('options.particle.enabled', 1)).
 		$settings += ['enabled' => '1'];

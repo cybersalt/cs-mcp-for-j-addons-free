@@ -1,5 +1,13 @@
 <div class="changelog-container">
 <h1>📋 MCP for Gantry 5 — Changelog</h1>
+<h2>🚀 Version 1.0.1 (November 12, 2026)</h2>
+<ul>
+<li>🔒 <strong>Security hardening.</strong> The Twig safeguard on <code>update_gantry5_particle_module</code> now takes the outline's particle defaults into account, as the other particle tools already did.</li>
+<li>🐛 <strong>Colour settings are checked before they're saved.</strong> <code>update_gantry5_styles</code> (and any particle colour field) accepts only colours Gantry can compile: <code>#rrggbb</code>, <code>rgba(r, g, b, a)</code>, <code>transparent</code> or a colour name. A value Gantry can't compile used to stop every page on that outline until it was removed.</li>
+<li>✅ <strong>Tested with Gantry 5.6.7</strong> and Helium 5.6.7 on Joomla 5.4 and 6.1.</li>
+<li>📦 The package now includes <code>LICENSE.txt</code>.</li>
+<li>🔧 <strong>Joomla's Changelog button now works for this add-on.</strong> On System → Manage → Extensions it shows this add-on's release notes.</li>
+</ul>
 <h2>🚀 Version 1.0.0 (October 29, 2026)</h2>
 <p>First release. 21 tools for the <strong>Gantry 5</strong> template framework (<code>pkg_gantry5</code>) by Tiger12. Studied against <strong>Gantry 5.6.4</strong> with the <strong>Helium 5.6.4</strong> theme and driven end-to-end on Joomla 6.2.0 / PHP 8.3, including particle, module position, style and particle-module changes showing up on a rendered page.</p>
 <h3>✨ New</h3>
