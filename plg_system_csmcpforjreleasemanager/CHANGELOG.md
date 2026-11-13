@@ -1,5 +1,10 @@
 # MCP for Cybersalt Release Manager — Changelog
 
+## 🚀 Version 1.13.0 (November 13, 2026)
+
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+- ✨ **Two new tools for Release Manager's rate limit bypasses.** `set_release_manager_rate_limit_bypass` lifts the hourly site-linking limits for one account (by email or Joomla user) for a number of hours or until a date, or ends a bypass now with `clear`. `list_release_manager_rate_limit_bypasses` shows the bypasses in force and the normal limits. Use them when an agency is adding an extension to many client sites at once. Changing a bypass that already exists needs Release Manager's Edit permission, and naming the account by `user_id` needs access to Users. They need Release Manager 1.18.0 or later, and say so on an older one.
+
 ## 🚀 Version 1.12.0 (November 5, 2026)
 
 - 🔒 **Security: the tools now check Release Manager's own permissions.** Before this, any account allowed to use MCP for J's tools could read customer emails and installations, and any account with its write permission could change or delete packages, versions and installations, even with no access to Release Manager at all. Now every tool needs Release Manager's "Access Administration Interface" permission, the same rule as its own screens, and creating needs "Create", changing needs "Edit", changing a published state needs "Edit State", and deleting needs "Delete". If you use this add-on with an account that isn't a Super User, check it has these permissions.

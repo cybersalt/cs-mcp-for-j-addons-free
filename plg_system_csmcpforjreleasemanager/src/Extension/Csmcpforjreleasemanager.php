@@ -63,6 +63,10 @@ final class Csmcpforjreleasemanager extends CMSPlugin implements SubscriberInter
 		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\Installations\UpdateReleaseManagerInstallationTool::class,
 		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\Installations\DeleteReleaseManagerInstallationTool::class,
 
+		// Rate limit bypasses (lift the hourly site-linking limits for one account, cs-release-manager#5)
+		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\RateLimits\ListReleaseManagerRateLimitBypassesTool::class,
+		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\RateLimits\SetReleaseManagerRateLimitBypassTool::class,
+
 		// Read-only operational data
 		\Cybersalt\Plugin\System\Csmcpforjreleasemanager\Tools\ListReleaseManagerActivityLogTool::class,
 	];

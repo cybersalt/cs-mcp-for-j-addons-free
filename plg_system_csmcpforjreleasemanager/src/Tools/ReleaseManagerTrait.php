@@ -60,6 +60,26 @@ trait ReleaseManagerTrait
 	}
 
 	/**
+	 * Rate limit bypasses (cs-release-manager#5) arrived in Release Manager
+	 * 1.18.0. Returns null when this site's Release Manager has them, or an
+	 * error saying it needs updating. Booting the component registers its
+	 * namespace, so the helper class can be found.
+	 */
+	private function requireBypassSupport(): ?ToolResult
+	{
+		\Joomla\CMS\Factory::getApplication()->bootComponent('com_csreleasemanager');
+
+		$helper = '\\Cybersalt\\Component\\CsReleaseManager\\Administrator\\Helper\\RateLimitHelper';
+		$tables = array_map('strtolower', $this->db->getTableList());
+
+		if (!method_exists($helper, 'setBypass') || !\in_array(strtolower($this->db->replacePrefix('#__csrm_rate_limit_bypasses')), $tables, true)) {
+			return ToolResult::error('This site\'s Release Manager has no rate limit bypasses yet. They arrived in Release Manager 1.18.0: update Release Manager first.');
+		}
+
+		return null;
+	}
+
+	/**
 	 * Boots cs-release-manager and returns an Administrator model for one of
 	 * its data types (Package, Packageversion, etc.) with request coupling
 	 * disabled.
