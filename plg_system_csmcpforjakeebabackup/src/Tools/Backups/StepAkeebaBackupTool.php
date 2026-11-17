@@ -63,8 +63,12 @@ final class StepAkeebaBackupTool extends AbstractTool
 			return $refusal;
 		}
 
-		$backupId = $this->requireString($arguments, 'backup_id');
-		$tag      = trim((string) ($arguments['tag'] ?? 'json')) ?: 'json';
+		$backupId = $this->akeebaCmd($this->requireString($arguments, 'backup_id'));
+		$tag      = $this->akeebaCmd(trim((string) ($arguments['tag'] ?? 'json')) ?: 'json');
+
+		if ($backupId === null || $tag === null) {
+			return ToolResult::error('backup_id and tag may only hold letters, digits, "_", "." and "-": pass them exactly as start_akeeba_backup returned them.');
+		}
 
 		/** @var \Akeeba\Component\AkeebaBackup\Administrator\Model\BackupModel $model */
 		$model = $component->getMVCFactory()->createModel('Backup', 'Administrator', ['ignore_request' => true]);

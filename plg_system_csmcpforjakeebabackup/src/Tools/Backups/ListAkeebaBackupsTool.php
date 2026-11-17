@@ -115,7 +115,7 @@ final class ListAkeebaBackupsTool extends AbstractTool
 		$tables = $this->db->getTableList();
 		if (!in_array($table, $tables, true)) {
 			return ToolResult::error(
-				'Akeeba Backup is not installed on this site (table ' . $table . ' missing). '
+				'Akeeba Backup is not installed on this site (its backups table is missing). '
 				. 'Install com_akeebabackup from https://www.akeeba.com/download/akeeba-backup.html.'
 			);
 		}

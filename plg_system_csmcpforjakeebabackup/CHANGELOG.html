@@ -1,8 +1,14 @@
 <div class="changelog-container">
-<h1>📋 MCP for Akeeba Backup Core — Changelog</h1>
-<h2>📝 Unreleased (ships with this add-on's next release)</h2>
+<h1>📋 MCP for Akeeba Backup — Changelog</h1>
+<h2>🚀 Version 1.0.6 (November 17, 2026)</h2>
+<p>Tested on Joomla 5.4.10 and 6.1.4 with Akeeba Backup Core 10.5.0 and Pro 10.5.0 (four test sites): real backups run through MCP, and every tool tried with Super User, Administrator and Manager accounts, with the Manager granted each Akeeba permission in turn.</p>
 <ul>
 <li>🔧 <strong>Joomla's Changelog button now works for this add-on.</strong> On System → Manage → Extensions it shows this add-on's release notes.</li>
+<li>🔒 <strong>Passwords and keys stay hidden.</strong> <code>get_akeeba_profile</code> masks passwords, keys and tokens in a profile's settings when they are stored unencrypted, including Google Storage's JSON credentials, and the database passwords that Akeeba Backup Pro's Multiple Databases feature keeps in a profile's filters. A new <code>reveal</code> option shows them, for accounts with Akeeba Backup's "Configure ACL &amp; Options" permission. Error messages no longer show server folder paths or the database table prefix.</li>
+<li>🔒 <strong>Backup inputs are checked the way Akeeba Backup checks them.</strong> <code>start_akeeba_backup</code> and <code>step_akeeba_backup</code> accept only letters, digits, "_", "." and "-" in <code>tag</code> and <code>backup_id</code>, and clean the description and comment with the same filters as Akeeba's own backup page.</li>
+<li>🐛 <strong>A files-only delete now updates the backup record.</strong> <code>delete_akeeba_backup</code> with <code>files_only</code> removed the archive, but the record kept saying it was on the server (and restorable) until Akeeba Backup's Manage screen was next opened. The record is now marked straight away, as that screen does.</li>
+<li>✏️ <strong>Renamed "MCP for Akeeba Backup".</strong> It works with Akeeba Backup Core and Pro, so the plugin is now called "System - MCP for Akeeba Backup". Its description no longer mentions a download tool it doesn't have.</li>
+<li>📦 The package now includes <code>LICENSE.txt</code>.</li>
 </ul>
 <h2>🚀 Version 1.0.5 (November 5, 2026)</h2>
 <p>Thanks to Leandro Santana, whose report ("it did not recognise the latest backups") led to this. Tested on Joomla 6.1.4 with Akeeba Backup Core 10.5.0 and Pro 10.5.0: real backups run through MCP, and every tool tried with Super User, Administrator and Manager accounts, with the Manager granted each Akeeba permission in turn.</p>

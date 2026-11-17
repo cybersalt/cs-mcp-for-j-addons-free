@@ -7,7 +7,7 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>support@cybersalt.com</authorEmail>
 	<authorUrl>https://cybersalt.com</authorUrl>
-	<version>1.0.5</version>
+	<version>1.0.6</version>
 	<description>PLG_SYSTEM_CSMCPFORJAKEEBABACKUP_XML_DESCRIPTION</description>
 
 	<namespace path="src">Cybersalt\Plugin\System\Csmcpforjakeebabackup</namespace>
@@ -15,6 +15,7 @@
 	<scriptfile>script.php</scriptfile>
 
 	<files>
+		<filename>LICENSE.txt</filename>
 		<filename>script.php</filename>
 		<folder plugin="csmcpforjakeebabackup">services</folder>
 		<folder>src</folder>
@@ -28,6 +29,6 @@
 	<changelogurl>https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.changelogxml&amp;format=raw&amp;element=csmcpforjakeebabackup</changelogurl>
 
 	<updateservers>
-		<server type="extension" name="MCP add-on for Akeeba Backup">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjakeebabackup</server>
+		<server type="extension" name="MCP for Akeeba Backup">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjakeebabackup</server>
 	</updateservers>
 </extension>

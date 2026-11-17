@@ -1,8 +1,15 @@
-# MCP for Akeeba Backup Core — Changelog
+# MCP for Akeeba Backup — Changelog
 
-## 📝 Unreleased (ships with this add-on's next release)
+## 🚀 Version 1.0.6 (November 17, 2026)
+
+Tested on Joomla 5.4.10 and 6.1.4 with Akeeba Backup Core 10.5.0 and Pro 10.5.0 (four test sites): real backups run through MCP, and every tool tried with Super User, Administrator and Manager accounts, with the Manager granted each Akeeba permission in turn.
 
 - 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+- 🔒 **Passwords and keys stay hidden.** `get_akeeba_profile` masks passwords, keys and tokens in a profile's settings when they are stored unencrypted, including Google Storage's JSON credentials, and the database passwords that Akeeba Backup Pro's Multiple Databases feature keeps in a profile's filters. A new `reveal` option shows them, for accounts with Akeeba Backup's "Configure ACL & Options" permission. Error messages no longer show server folder paths or the database table prefix.
+- 🔒 **Backup inputs are checked the way Akeeba Backup checks them.** `start_akeeba_backup` and `step_akeeba_backup` accept only letters, digits, "_", "." and "-" in `tag` and `backup_id`, and clean the description and comment with the same filters as Akeeba's own backup page.
+- 🐛 **A files-only delete now updates the backup record.** `delete_akeeba_backup` with `files_only` removed the archive, but the record kept saying it was on the server (and restorable) until Akeeba Backup's Manage screen was next opened. The record is now marked straight away, as that screen does.
+- ✏️ **Renamed "MCP for Akeeba Backup".** It works with Akeeba Backup Core and Pro, so the plugin is now called "System - MCP for Akeeba Backup". Its description no longer mentions a download tool it doesn't have.
+- 📦 The package now includes `LICENSE.txt`.
 
 ## 🚀 Version 1.0.5 (November 5, 2026)
 

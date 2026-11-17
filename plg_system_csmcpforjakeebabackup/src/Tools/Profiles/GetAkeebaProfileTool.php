@@ -38,7 +38,8 @@ final class GetAkeebaProfileTool extends AbstractTool
 			. 'and the raw configuration + filters blobs. The blobs are Akeeba\'s serialized '
 			. '(and possibly encrypted) per-profile engine settings — opaque from outside, '
 			. 'kept on the response for completeness, and returned only to an account with '
-			. 'Akeeba Backup\'s "Configure" permission.';
+			. 'Akeeba Backup\'s "Configure" permission. Passwords, keys and tokens in an unencrypted '
+			. 'configuration and in the filters (Multiple Databases passwords) are masked unless reveal=true.';
 	}
 
 	public function getInputSchema(): array
@@ -47,6 +48,7 @@ final class GetAkeebaProfileTool extends AbstractTool
 			'type'       => 'object',
 			'properties' => [
 				'profile_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'The profile id.'],
+				'reveal'     => ['type' => 'boolean', 'description' => 'Show passwords, keys and tokens in an unencrypted configuration and in the filters in clear. Needs Akeeba Backup\'s "Configure ACL & Options" permission (a Super User has it). Default false: they are masked.'],
 			],
 			'required'             => ['profile_id'],
 			'additionalProperties' => false,
@@ -67,6 +69,13 @@ final class GetAkeebaProfileTool extends AbstractTool
 
 		if ($refusal = $this->akeebaRefusal($actor)) {
 			return $refusal;
+		}
+
+		$reveal = !empty($arguments['reveal']);
+
+		if ($reveal && !$actor->authorise('core.admin', 'com_akeebabackup')) {
+			return ToolResult::error('Refused: reveal needs Akeeba Backup\'s "Configure ACL & Options" permission (core.admin). '
+				. 'Call again without reveal to get the profile with its passwords and keys masked.');
 		}
 
 		$q = $this->db->getQuery(true)
@@ -91,11 +100,24 @@ final class GetAkeebaProfileTool extends AbstractTool
 			'access'        => (int) $row['access'],
 		];
 
-		// The blobs can hold remote storage credentials and the archive password,
-		// and Akeeba shows them only on its Configuration page.
+		// The blobs can hold remote storage credentials, the archive password and
+		// (filters, Multiple Databases) database passwords, and Akeeba shows them
+		// only on its own configuration screens. In a plain (unencrypted) blob
+		// those are masked unless reveal is asked for by an account with Akeeba
+		// Backup's "Configure ACL & Options" permission.
 		if ($actor->authorise('akeebabackup.configure', 'com_akeebabackup')) {
-			$out['configuration'] = (string) ($row['configuration'] ?? '');
-			$out['filters']       = (string) ($row['filters'] ?? '');
+			$configuration = (string) ($row['configuration'] ?? '');
+			$encrypted     = \in_array(substr($configuration, 0, 12), ['###AES128###', '###CTR128###'], true);
+			$filters       = (string) ($row['filters'] ?? '');
+
+			$out['configuration_encrypted'] = $encrypted;
+			$out['configuration']           = $reveal ? $configuration : $this->akeebaMaskConfiguration($configuration);
+			$out['filters']                 = $reveal ? $filters : $this->akeebaMaskFilters($filters);
+
+			if ($out['filters'] === null) {
+				$out['filters_hidden'] = 'The filters are stored in an older format that can\'t be masked, so they are left out. '
+					. 'Call again with reveal=true to get them (needs "Configure ACL & Options").';
+			}
 		} else {
 			$out['settings_hidden'] = 'The configuration and filters need Akeeba Backup\'s "Configure" permission (akeebabackup.configure).';
 		}

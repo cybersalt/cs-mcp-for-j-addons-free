@@ -36,8 +36,8 @@ final class DeleteAkeebaBackupTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Delete one Akeeba Backup. Default behaviour deletes BOTH the record + the '
-			. 'archive files. Pass files_only=true to keep the record (Akeeba will mark '
-			. 'filesexist=0) and just unlink the archive — useful for pruning disk after '
+			. 'archive files. Pass files_only=true to keep the record (marked filesexist=0, '
+			. 'as Akeeba\'s Manage screen does) and just unlink the archive — useful for pruning disk after '
 			. 'you\'ve copied the archive off-site. Frozen records are refused (set frozen=0 '
 			. 'in the admin first if you really want to delete a frozen backup).';
 	}
@@ -80,12 +80,19 @@ final class DeleteAkeebaBackupTool extends AbstractTool
 		} catch (\RuntimeException $e) {
 			// FrozenRecordError extends RuntimeException; any other runtime
 			// error coming out of the model (file-permission failures, etc.)
-			// also lands here. Surface the message verbatim.
-			return ToolResult::error('Akeeba refused to delete backup ' . $id . ': ' . $e->getMessage());
+			// also lands here. Surface the message, minus SQL and server paths.
+			return ToolResult::error('Akeeba refused to delete backup ' . $id . ': ' . $this->akeebaSafeMessage($e));
 		}
 
 		if (!$ok) {
 			return ToolResult::error('Akeeba returned false for backup ' . $id . ' delete (no further detail available).');
+		}
+
+		// deleteFiles() removes the archive but leaves the record saying the files
+		// are on the server; Akeeba's Manage screen corrects that only the next time
+		// it lists backups. Mark it now, as that screen does.
+		if ($filesOnly) {
+			\Akeeba\Engine\Platform::getInstance()->invalidate_backup_records([$id]);
 		}
 
 		return ToolResult::json([

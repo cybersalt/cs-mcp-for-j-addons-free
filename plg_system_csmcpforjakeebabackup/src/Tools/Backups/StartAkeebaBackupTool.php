@@ -68,7 +68,7 @@ final class StartAkeebaBackupTool extends AbstractTool
 				'profile_id'  => ['type' => 'integer', 'minimum' => 1, 'description' => 'Profile to run the backup under. Defaults to 1 (Default Backup Profile).'],
 				'description' => ['type' => 'string', 'description' => 'Human-readable description for this backup. Defaults to Akeeba\'s auto-generated one.'],
 				'comment'     => ['type' => 'string', 'description' => 'Optional notes stored on the backup record.'],
-				'tag'         => ['type' => 'string', 'description' => 'Origin tag for the backup. Defaults to "json".'],
+				'tag'         => ['type' => 'string', 'description' => 'Origin tag for the backup: letters, digits, "_", "." and "-" only. Defaults to "json".'],
 			],
 			'additionalProperties' => false,
 		];
@@ -84,17 +84,15 @@ final class StartAkeebaBackupTool extends AbstractTool
 			return $refusal;
 		}
 
+		// Same input filters as Akeeba's own BackupController.
+		$filter      = \Joomla\CMS\Filter\InputFilter::getInstance();
 		$profileId   = max(1, (int) ($arguments['profile_id'] ?? 1));
-		$description = trim((string) ($arguments['description'] ?? ''));
-		$comment     = (string) ($arguments['comment'] ?? '');
-		$tag         = trim((string) ($arguments['tag'] ?? 'json')) ?: 'json';
+		$description = trim((string) $filter->clean((string) ($arguments['description'] ?? ''), 'string'));
+		$comment     = (string) $filter->clean((string) ($arguments['comment'] ?? ''), 'html');
+		$tag         = $this->akeebaCmd(trim((string) ($arguments['tag'] ?? 'json')) ?: 'json');
 
-		// Pin the session profile BEFORE asking BackupModel for the profile —
-		// startBackup reads akeebabackup.profile from session, defaulting to 1.
-		$app = \Joomla\CMS\Factory::getApplication();
-		$app->getSession()->set('akeebabackup.profile', $profileId);
-		if (!\defined('AKEEBA_PROFILE')) {
-			\define('AKEEBA_PROFILE', $profileId);
+		if ($tag === null) {
+			return ToolResult::error('tag may only hold letters, digits, "_", "." and "-" (Akeeba names its temporary files after it). Nothing was started.');
 		}
 
 		$profileAccess = $this->db->setQuery(
@@ -110,6 +108,14 @@ final class StartAkeebaBackupTool extends AbstractTool
 
 		if (!$this->akeebaCanUseProfile($actor, (int) $profileAccess)) {
 			return ToolResult::error('Refused: profile ' . $profileId . ' is at an access level the Joomla account this AI app acts for does not have. Nothing was started.');
+		}
+
+		// Pin the session profile BEFORE asking BackupModel for the profile —
+		// startBackup reads akeebabackup.profile from session, defaulting to 1.
+		$app = \Joomla\CMS\Factory::getApplication();
+		$app->getSession()->set('akeebabackup.profile', $profileId);
+		if (!\defined('AKEEBA_PROFILE')) {
+			\define('AKEEBA_PROFILE', $profileId);
 		}
 
 		// Load the profile the way Akeeba's own Dispatcher does before any backup

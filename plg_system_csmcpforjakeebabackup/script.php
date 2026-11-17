@@ -44,7 +44,7 @@ class PlgSystemCsmcpforjakeebabackupInstallerScript implements InstallerScriptIn
 		// that way and explain. See coreInstalled().
 		if (!$this->coreInstalled()) {
 			Factory::getApplication()->enqueueMessage(
-				'MCP add-on for Akeeba Backup Core was installed but has been left DISABLED, because '
+				'MCP for Akeeba Backup was installed but has been left DISABLED, because '
 				. 'the CS MCP for J extension is not on this site. This add-on only adds tools '
 				. 'to MCP for J - on its own it does nothing. Install CS MCP for J first, '
 				. 'then enable this plugin in System -> Plugins. Nothing is broken and the site is '
@@ -79,7 +79,7 @@ class PlgSystemCsmcpforjakeebabackupInstallerScript implements InstallerScriptIn
 		// UI. The tools appear in connected MCP clients (Claude Desktop, Claude
 		// Code, claude.ai) automatically.
 		Factory::getApplication()->enqueueMessage(
-			'MCP add-on for Akeeba Backup Core installed and active. New Akeeba tools '
+			'MCP for Akeeba Backup installed and active. New Akeeba tools '
 			. '(list profiles, list / start / step / inspect / delete backups) are now '
 			. 'exposed to your connected MCP clients. There is no separate admin UI by '
 			. 'design — the tools appear in your MCP client automatically.',
