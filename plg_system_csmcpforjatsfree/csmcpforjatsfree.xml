@@ -27,6 +27,8 @@
 		<language tag="en-GB">language/en-GB/plg_system_csmcpforjatsfree.sys.ini</language>
 	</languages>
 
+	<changelogurl>https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.changelogxml&amp;format=raw&amp;element=csmcpforjatsfree</changelogurl>
+
 	<updateservers>
 		<server type="extension" name="MCP add-on for Akeeba Ticket System">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjatsfree</server>
 	</updateservers>

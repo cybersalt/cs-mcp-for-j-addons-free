@@ -1,5 +1,9 @@
 # MCP for Page Protector — Changelog
 
+## 📝 Unreleased (ships with this add-on's next release)
+
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.0.0 (October 29, 2026)
 
 First release. 15 tools for **Cybersalt Page Protector** (`com_cspageprotector` + `plg_system_cspageprotector`).

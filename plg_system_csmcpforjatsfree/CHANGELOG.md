@@ -3,6 +3,7 @@
 ## 📝 Unreleased (ships with this add-on's next release)
 
 - 📝 **Uses the core extension's current name.** The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
 
 ## 🚀 Version 1.0.2 (October 20, 2026)
 

@@ -28,6 +28,8 @@
 		<language tag="en-GB">language/en-GB/plg_system_csmcpforjvirtuemart.sys.ini</language>
 	</languages>
 
+	<changelogurl>https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.changelogxml&amp;format=raw&amp;element=csmcpforjvirtuemart</changelogurl>
+
 	<updateservers>
 		<server type="extension" name="MCP add-on for VirtueMart">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjvirtuemart</server>
 	</updateservers>

@@ -25,6 +25,8 @@
 		<language tag="en-GB">language/en-GB/plg_system_csmcpforjmaximenuckfree.sys.ini</language>
 	</languages>
 
+	<changelogurl>https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.changelogxml&amp;format=raw&amp;element=csmcpforjmaximenuckfree</changelogurl>
+
 	<updateservers>
 		<server type="extension" name="MCP add-on for Maximenu CK">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjmaximenuckfree</server>
 	</updateservers>

@@ -1,5 +1,9 @@
 # MCP for Akeeba Backup Core — Changelog
 
+## 📝 Unreleased (ships with this add-on's next release)
+
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.0.5 (November 5, 2026)
 
 Thanks to Leandro Santana, whose report ("it did not recognise the latest backups") led to this. Tested on Joomla 6.1.4 with Akeeba Backup Core 10.5.0 and Pro 10.5.0: real backups run through MCP, and every tool tried with Super User, Administrator and Manager accounts, with the Manager granted each Akeeba permission in turn.

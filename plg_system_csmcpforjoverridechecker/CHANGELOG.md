@@ -1,5 +1,9 @@
 # MCP for Override Checker — Changelog
 
+## 📝 Unreleased (ships with this add-on's next release)
+
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.0.0 (November 5, 2026)
 
 First release. 12 tools for **Cybersalt Override Checker** (`com_csoverridechecker`), so any MCP client can review

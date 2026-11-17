@@ -1,5 +1,9 @@
 # MCP for Community Builder — Changelog
 
+## 📝 Unreleased (ships with this add-on's next release)
+
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.0.3 (November 5, 2026)
 
 - 🔒 **Community Builder's HTML filter now applies to member field values.** `update_cb_user_fields` stored values exactly as sent, skipping the filter CB runs when a member saves the form. Text, text area, name, web address and tag fields are now refused if they contain tags, HTML editor fields are cleaned the way CB cleans them, and the response says which fields changed.

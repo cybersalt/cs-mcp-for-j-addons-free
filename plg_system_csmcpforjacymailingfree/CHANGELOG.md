@@ -3,6 +3,10 @@
 `plg_system_csmcpforjacymailingfree`. Versions are independent of every other
 add-on in this repo and of cs-mcp-for-j core.
 
+## 📝 Unreleased (ships with this add-on's next release)
+
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.0.3 (November 4, 2026)
 
 - 🔒 **Every tool now applies AcyMailing's own permissions.** The AI can no longer do more than the Joomla account it acts for could do in AcyMailing itself. Each tool needs AcyMailing's Access Administration Interface permission and access to the page it belongs to, such as Subscribers, Lists or Emails. Before this, any account with MCP access could use every tool.

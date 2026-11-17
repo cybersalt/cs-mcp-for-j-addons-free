@@ -27,6 +27,8 @@
 		<language tag="en-GB">language/en-GB/plg_system_csmcpforjpagebuilderckfree.sys.ini</language>
 	</languages>
 
+	<changelogurl>https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.changelogxml&amp;format=raw&amp;element=csmcpforjpagebuilderckfree</changelogurl>
+
 	<updateservers>
 		<server type="extension" name="MCP add-on for Page Builder CK">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjpagebuilderckfree</server>
 	</updateservers>

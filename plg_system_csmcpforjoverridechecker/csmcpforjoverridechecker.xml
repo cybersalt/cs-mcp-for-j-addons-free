@@ -27,6 +27,8 @@
 		<language tag="en-GB">language/en-GB/plg_system_csmcpforjoverridechecker.sys.ini</language>
 	</languages>
 
+	<changelogurl>https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.changelogxml&amp;format=raw&amp;element=csmcpforjoverridechecker</changelogurl>
+
 	<updateservers>
 		<server type="extension" name="MCP add-on for Override Checker">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjoverridechecker</server>
 	</updateservers>

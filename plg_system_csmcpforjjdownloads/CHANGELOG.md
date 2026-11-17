@@ -1,5 +1,9 @@
 # MCP for jDownloads — Changelog
 
+## 📝 Unreleased (ships with this add-on's next release)
+
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.0.1 (November 4, 2026)
 
 - 🔒 **Joomla's text filters now apply.** Descriptions and changelogs were stored exactly as sent, so an account whose text filters forbid scripts could put one on a public download page. jDownloads' own form filters these fields. The tools now do the same for download descriptions, long descriptions and changelogs and for category descriptions, and the response says which fields changed.

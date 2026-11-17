@@ -1,5 +1,9 @@
 # MCP for VirtueMart — Changelog
 
+## 📝 Unreleased (ships with this add-on's next release)
+
+- 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.
+
 ## 🚀 Version 1.0.4 (November 5, 2026)
 
 - 🔒 **Joomla's text filters now apply.** Product, category and manufacturer text was stored exactly as sent, so an account whose text filters forbid scripts could put one on a public shop page. VirtueMart's own save filters these fields. The tools now do the same for product names and descriptions, category names and descriptions, manufacturer names and descriptions, and custom titles, and the response says which fields changed.

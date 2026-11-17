@@ -1,5 +1,9 @@
 <div class="changelog-container">
 <h1>📋 MCP for JCE — Changelog</h1>
+<h2>📝 Unreleased (ships with this add-on's next release)</h2>
+<ul>
+<li>🔧 <strong>Joomla's Changelog button now works for this add-on.</strong> On System → Manage → Extensions it shows this add-on's release notes.</li>
+</ul>
 <h2>🚀 Version 1.0.4 (November 5, 2026)</h2>
 <ul>
 <li>🔒 <strong>No HTML in profile names, descriptions or component lists.</strong> These were stored exactly as sent, and JCE's profile list prints a profile's name without escaping it, so a tag saved as a name would run in the browser of whoever opened that list. JCE's own save strips tags from these fields. <code>create_jce_profile</code>, <code>update_jce_profile</code>, <code>duplicate_jce_profile</code> and <code>set_jce_profile_assignment</code> now refuse them.</li>

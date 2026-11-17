@@ -27,6 +27,8 @@
 		<language tag="en-GB">language/en-GB/plg_system_csmcpforjflexbanners.sys.ini</language>
 	</languages>
 
+	<changelogurl>https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.changelogxml&amp;format=raw&amp;element=csmcpforjflexbanners</changelogurl>
+
 	<updateservers>
 		<server type="extension" name="MCP add-on for FlexBanners">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=csmcpforjflexbanners</server>
 	</updateservers>
