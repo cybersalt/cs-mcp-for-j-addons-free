@@ -50,6 +50,8 @@ final class ListConnectionsTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage');
+
 		if (!$this->cfTableExists('connections')) {
 			return ToolResult::json([
 				'ok'          => true,

@@ -29,9 +29,12 @@ final class CreateFormTool extends AbstractTool
 		return 'Create a Convert Forms form. Supply "fields" as an ordered LIST of '
 			. 'field definitions (this tool converts it to the keyed map Convert '
 			. 'Forms stores) — a submit field is appended automatically if you omit '
-			. 'one, otherwise the form cannot be submitted. Sensible behaviour '
-			. 'defaults are applied: store submissions, show a success message, '
-			. 'honeypot on. Saves through ConvertFormsModelForm so per-field '
+			. 'one, otherwise the form cannot be submitted. Each field and the form '
+			. 'itself start from the same defaults Convert Forms\' own editor uses '
+			. '(labels shown, button styling, heading tag, design settings), so you '
+			. 'only send what differs. Fields are optional unless you pass '
+			. 'required=true. Behaviour defaults: store submissions, show a success '
+			. 'message, honeypot on. Saves through ConvertFormsModelForm so per-field '
 			. 'validation hooks run. Call list_convertforms_field_types first to '
 			. 'confirm which types this install supports.';
 	}
@@ -50,7 +53,7 @@ final class CreateFormTool extends AbstractTool
 				],
 				'fields' => [
 					'type'        => 'array',
-					'description' => 'Ordered list of fields. Each needs "type"; input fields also take name, label, description, required, placeholder, value, size, cssclass. Choice types (dropdown/radio/checkbox) need "choices": a list of {label, value} objects.',
+					'description' => 'Ordered list of fields. Each needs "type"; input fields also take name, label, description, required (default false), placeholder, value, size, cssclass, hidelabel. Choice types (dropdown/radio/checkbox) need "choices": a list of {label, value} objects. heading: "label" is the heading text, "heading_type" h1-h6 (default h2). html: "text" holds the HTML (Smart Tags and content plugin shortcodes work); "html" or "value" are accepted too. submit: "text" is the button text (default "Sign up"). Any other option Convert Forms stores for the type (list_convertforms_field_types with type=<type> shows them with their defaults) can be passed as well.',
 					'items'       => ['type' => 'object'],
 				],
 				'success_message' => ['type' => 'string', 'description' => 'Shown after submit when onsuccess=msg. Default a generic thank-you.'],
@@ -72,6 +75,8 @@ final class CreateFormTool extends AbstractTool
 		if (!$this->ensureCfLoaded()) {
 			return $this->notInstalledError();
 		}
+
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.create');
 
 		$name = $this->requireString($arguments, 'name');
 
@@ -101,7 +106,9 @@ final class CreateFormTool extends AbstractTool
 			return ToolResult::error($e->getMessage());
 		}
 
-		$params = [
+		// The editor's defaults for a new form first (design, submission and
+		// security settings), then this tool's behaviour defaults over them.
+		$params = array_replace($this->cfFormDefaults(), [
 			'fields'            => $fields,
 			'save_data_to_db'   => (!array_key_exists('store_submissions', $arguments) || $arguments['store_submissions']) ? '1' : '0',
 			'submission_state'  => '1',
@@ -110,7 +117,7 @@ final class CreateFormTool extends AbstractTool
 			'resetform'         => '1',
 			'hideform'          => '1',
 			'honeypot'          => '1',
-		];
+		]);
 
 		if (!empty($arguments['success_url'])) {
 			$params['onsuccess']  = 'url';
@@ -129,6 +136,13 @@ final class CreateFormTool extends AbstractTool
 			// Never let a raw params patch clobber the built field map.
 			$params['fields'] = $fields;
 		}
+
+		$this->cfGuardPhpCode(
+			$actor,
+			[],
+			is_array($params['phpscripts'] ?? null) ? $params['phpscripts'] : [],
+			'A form\'s PHP Scripts'
+		);
 
 		$data = [
 			'id'       => 0,
@@ -153,6 +167,7 @@ final class CreateFormTool extends AbstractTool
 			'field_count'    => $saved === null ? count($fields) : count($this->cfFields($saved['params'])),
 			'fields'         => $saved === null ? $fields : $this->cfFields($saved['params']),
 			'appended_submit_field' => $appendedSubmit,
+			'editor_defaults_applied' => $this->cfFieldDefaults('text') !== [],
 			'save_warnings'  => $out['error'] ?: null,
 			'next_steps'     => 'Publish the form on a page with the {convertforms ' . $out['id'] . '} content plugin tag, '
 				. 'a Convert Forms module, or the menu item type. Add an email notification with create_convertforms_task.',

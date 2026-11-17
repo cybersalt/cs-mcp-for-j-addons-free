@@ -69,6 +69,8 @@ final class CreateTaskTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.edit');
+
 		if (!$this->cfTableExists('tasks')) {
 			return ToolResult::error(
 				'#__convertforms_tasks does not exist. The Tasks engine arrived in '
@@ -128,6 +130,11 @@ final class CreateTaskTool extends AbstractTool
 
 		$options    = $arguments['options'] ?? [];
 		$options    = is_array($options) ? $options : [];
+
+		if ($app === 'php') {
+			$this->cfGuardPhpCode($actor, [], ['php' => $options['php'] ?? ''], 'PHP tasks');
+		}
+
 		$conditions = $arguments['conditions'] ?? [];
 		$conditions = is_array($conditions) ? $conditions : [];
 

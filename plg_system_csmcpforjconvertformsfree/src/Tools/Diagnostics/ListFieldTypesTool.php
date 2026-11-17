@@ -14,11 +14,13 @@ namespace Cybersalt\Plugin\System\Csmcpforjconvertformsfree\Tools\Diagnostics;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Cybersalt\Plugin\System\Csmcpforjconvertformsfree\Tools\ConvertFormsBootTrait;
+use Cybersalt\Plugin\System\Csmcpforjconvertformsfree\Tools\FormFieldTrait;
 use Joomla\CMS\User\User;
 
 final class ListFieldTypesTool extends AbstractTool
 {
 	use ConvertFormsBootTrait;
+	use FormFieldTrait;
 
 	public function getName(): string { return 'list_convertforms_field_types'; }
 
@@ -57,6 +59,8 @@ final class ListFieldTypesTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor);
+
 		$available = $this->cfAvailableFieldTypes();
 		$registry  = $this->cfFieldTypeRegistry();
 		$noInput   = $this->cfNoInputFieldTypes();
@@ -87,6 +91,10 @@ final class ListFieldTypesTool extends AbstractTool
 				'accepts_input' => !in_array($type, $noInput, true),
 				'common_options' => $this->optionNames('field'),
 				'type_options'   => $this->optionNames('field/' . $type),
+				// What Convert Forms' editor stores for a new field of this type;
+				// create_convertforms_form and add_convertforms_form_field start
+				// from exactly this.
+				'editor_defaults' => $this->cfFieldDefaults($type),
 			]);
 		}
 

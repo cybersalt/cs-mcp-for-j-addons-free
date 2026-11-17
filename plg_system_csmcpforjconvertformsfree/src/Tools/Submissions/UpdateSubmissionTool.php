@@ -66,6 +66,8 @@ final class UpdateSubmissionTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.submissions.manage', 'core.edit');
+
 		if (!$this->cfTableExists('conversions')) {
 			return ToolResult::error('#__convertforms_conversions does not exist — the Convert Forms install looks incomplete.');
 		}

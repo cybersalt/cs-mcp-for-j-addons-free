@@ -63,6 +63,8 @@ final class UpdateTaskTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.edit');
+
 		if (!$this->cfTableExists('tasks')) {
 			return ToolResult::error('#__convertforms_tasks does not exist (the Tasks engine arrived in Convert Forms 5.0).');
 		}
@@ -111,10 +113,17 @@ final class UpdateTaskTool extends AbstractTool
 		$touched = [];
 
 		if (array_key_exists('options', $arguments) && is_array($arguments['options'])) {
+			// A masked value sent back from get_convertforms_task keeps the stored secret.
+			$patch   = $this->cfRestoreMasked($arguments['options'], $options);
 			$options = !empty($arguments['replace_options'])
-				? $arguments['options']
-				: $this->cfMergeParams($options, $arguments['options']);
+				? $patch
+				: $this->cfMergeParams($options, $patch);
 			$touched[] = 'options';
+		}
+
+		if (strtolower((string) $row['app']) === 'php' && in_array('options', $touched, true)) {
+			$stored = $this->cfDecodeParams($row['options']);
+			$this->cfGuardPhpCode($actor, ['php' => $stored['php'] ?? ''], ['php' => $options['php'] ?? ''], 'PHP tasks');
 		}
 
 		if (array_key_exists('conditions', $arguments) && is_array($arguments['conditions'])) {
@@ -226,6 +235,14 @@ final class UpdateTaskTool extends AbstractTool
 			}
 		}
 
+		if (isset($notApplied['options'])) {
+			// Never echo option values that look like secrets, even in an error.
+			$notApplied['options'] = [
+				'requested' => $this->canonicalJson($this->cfMaskSecrets($options)),
+				'stored'    => $this->canonicalJson($this->cfMaskSecrets($storedOptions)),
+			];
+		}
+
 		if ($notApplied !== []) {
 			return ToolResult::error(
 				'Task ' . $id . ' was saved but these changes are not in the stored row: '
@@ -246,7 +263,7 @@ final class UpdateTaskTool extends AbstractTool
 			'modified'   => $after['modified'],
 			'changed'    => array_values(array_unique($touched)),
 			'verified'   => 'Re-read from the database after saving; every requested change is stored.',
-			'options'    => $storedOptions,
+			'options'    => $this->cfMaskSecrets($storedOptions),
 			'conditions' => $storedConditions,
 		]);
 	}

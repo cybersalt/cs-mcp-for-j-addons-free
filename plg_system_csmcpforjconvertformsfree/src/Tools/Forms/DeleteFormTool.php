@@ -61,6 +61,8 @@ final class DeleteFormTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.delete');
+
 		$id   = $this->requirePositiveInt($arguments, 'id');
 		$form = $this->cfFetchForm($id);
 
@@ -72,6 +74,11 @@ final class DeleteFormTool extends AbstractTool
 
 		$deleteSubs = !empty($arguments['delete_submissions']);
 		$keepSubs   = !empty($arguments['keep_submissions']);
+
+		if ($deleteSubs) {
+			// Deleting the submissions is a Submissions-screen action in Convert Forms.
+			$this->cfRequireAccess($actor, 'convertforms.submissions.manage', 'core.delete');
+		}
 
 		if ($submissions > 0 && !$deleteSubs && !$keepSubs) {
 			return ToolResult::error(

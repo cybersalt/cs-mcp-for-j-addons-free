@@ -74,6 +74,8 @@ final class DuplicateFormTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.create');
+
 		$id     = $this->requirePositiveInt($arguments, 'id');
 		$source = $this->cfFetchForm($id);
 

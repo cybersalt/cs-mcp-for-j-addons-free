@@ -57,6 +57,8 @@ final class SetFormStateTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.edit.state');
+
 		$state = $this->normaliseContentStateFilter($arguments['state'] ?? null);
 		if ($state === null || !in_array($state, [0, 1, 2, -2], true)) {
 			return ToolResult::error('state must be one of published/unpublished/archived/trashed (or 1/0/2/-2).');

@@ -46,6 +46,8 @@ final class GetComponentInfoTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor);
+
 		$tables = [];
 		foreach (['', 'conversions', 'submission_meta', 'tasks', 'tasks_history', 'connections', 'campaigns'] as $suffix) {
 			$key          = $suffix === '' ? 'convertforms' : 'convertforms_' . $suffix;

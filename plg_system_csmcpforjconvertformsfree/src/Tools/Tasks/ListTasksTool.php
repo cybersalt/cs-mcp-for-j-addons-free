@@ -55,6 +55,8 @@ final class ListTasksTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage');
+
 		if (!$this->cfTableExists('tasks')) {
 			return ToolResult::error(
 				'#__convertforms_tasks does not exist. The Tasks engine arrived in '
@@ -119,7 +121,7 @@ final class ListTasksTool extends AbstractTool
 			];
 
 			if ($withOptions) {
-				$entry['options']    = $options;
+				$entry['options']    = $this->cfMaskSecrets($options);
 				$entry['conditions'] = $conditions;
 			}
 

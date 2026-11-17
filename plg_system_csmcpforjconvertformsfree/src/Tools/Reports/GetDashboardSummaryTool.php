@@ -50,6 +50,8 @@ final class GetDashboardSummaryTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor);
+
 		$hasConversions = $this->cfTableExists('conversions');
 
 		$forms = $this->db->setQuery(

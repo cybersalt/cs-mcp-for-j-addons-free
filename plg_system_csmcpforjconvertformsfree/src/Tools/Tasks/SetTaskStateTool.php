@@ -58,6 +58,8 @@ final class SetTaskStateTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.edit');
+
 		if (!$this->cfTableExists('tasks')) {
 			return ToolResult::error('#__convertforms_tasks does not exist (the Tasks engine arrived in Convert Forms 5.0).');
 		}

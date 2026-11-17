@@ -30,7 +30,9 @@ final class AddFormFieldTool extends AbstractTool
 			. 'go at the end by default; use before to insert ahead of an existing '
 			. 'field (by map key, key or name). Field keys are allocated so they '
 			. 'never collide with keys already in use, including keys freed by '
-			. 'earlier deletions. Choice types need a "choices" list or the save '
+			. 'earlier deletions. Each new field starts from the defaults Convert '
+			. 'Forms\' own editor uses for its type, and is optional unless you pass '
+			. 'required=true. Choice types need a "choices" list or the save '
 			. 'is rejected.';
 	}
 
@@ -43,7 +45,7 @@ final class AddFormFieldTool extends AbstractTool
 				'form_id' => ['type' => 'integer'],
 				'fields'  => [
 					'type'        => 'array',
-					'description' => 'Ordered list of new fields. Each needs "type"; input types also take name, label, description, required, placeholder, value, size, cssclass. dropdown/radio/checkbox need "choices": [{label, value}].',
+					'description' => 'Ordered list of new fields. Each needs "type"; input types also take name, label, description, required (default false), placeholder, value, size, cssclass, hidelabel. dropdown/radio/checkbox need "choices": [{label, value}]. heading: "label" is the text, "heading_type" h1-h6. html: "text" holds the HTML ("html" or "value" also accepted). submit: "text" is the button text.',
 					'items'       => ['type' => 'object'],
 				],
 				'before' => [
@@ -78,6 +80,8 @@ final class AddFormFieldTool extends AbstractTool
 		if (!$this->ensureCfLoaded()) {
 			return $this->notInstalledError();
 		}
+
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.edit');
 
 		$formId = $this->requirePositiveInt($arguments, 'form_id');
 		$form   = $this->cfFetchForm($formId);

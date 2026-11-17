@@ -47,6 +47,8 @@ final class ListAppsTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage');
+
 		if (!$this->cfTableExists('tasks')) {
 			return ToolResult::error(
 				'#__convertforms_tasks does not exist. The Tasks engine arrived in '

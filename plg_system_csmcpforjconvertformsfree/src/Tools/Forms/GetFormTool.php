@@ -83,6 +83,8 @@ final class GetFormTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage');
+
 		$id   = $this->requirePositiveInt($arguments, 'id');
 		$form = $this->cfFetchForm($id);
 

@@ -16,6 +16,7 @@ use Joomla\CMS\Factory;
 use Joomla\CMS\MVC\Model\BaseDatabaseModel;
 use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\CMS\Table\Table;
+use Joomla\CMS\User\User;
 use Joomla\Event\DispatcherInterface;
 
 /**
@@ -321,6 +322,147 @@ trait ConvertFormsBootTrait
 		return ToolResult::error(
 			'Convert Forms (com_convertforms) is not installed on this site, or the install is incomplete.'
 		);
+	}
+
+	/**
+	 * Refuse unless the actor holds the Convert Forms permissions its own admin
+	 * screens need for the same action. MCP for J's server only checks its own
+	 * csmcpforj.use / csmcpforj.write, so without this a token holder could do
+	 * in Convert Forms what their Joomla account cannot do in its admin.
+	 *
+	 * core.manage is always required: Convert Forms' entry point
+	 * (administrator/components/com_convertforms/convertforms.php) refuses
+	 * everyone without it. The forms and submissions screens each add their own
+	 * action (views/forms|form|conversions|conversion/view.html.php call
+	 * Helper::authorise('convertforms.<area>.manage', true)), and the toolbar
+	 * shows New / Publish / Delete only with core.create / core.edit.state /
+	 * core.delete (Helper::getActions()). All are checked on the component asset,
+	 * as Convert Forms does: its forms and submissions have no assets of their own.
+	 * A Super User passes every check.
+	 *
+	 * @throws \RuntimeException naming the missing permission.
+	 */
+	protected function cfRequireAccess(User $actor, string ...$actions): void
+	{
+		if ($actor->guest || (int) $actor->id === 0) {
+			throw new \RuntimeException('Convert Forms tools need a signed-in Joomla user.');
+		}
+
+		$labels = [
+			'core.manage'                     => 'Access Administration Interface',
+			'core.create'                     => 'Create',
+			'core.edit'                       => 'Edit',
+			'core.edit.state'                 => 'Edit State',
+			'core.delete'                     => 'Delete',
+			'core.admin'                      => 'Configure ACL & Options',
+			'convertforms.forms.manage'       => 'Access Forms',
+			'convertforms.submissions.manage' => 'Access Submissions',
+		];
+
+		foreach (array_unique(array_merge(['core.manage'], $actions)) as $action) {
+			if (!$actor->authorise($action, 'com_convertforms')) {
+				throw new \RuntimeException(
+					'You need \'' . ($labels[$action] ?? $action) . '\' permission (' . $action . ') on Convert Forms '
+					. 'to do this (Users → Options → Permissions, or the Permissions tab in Convert Forms\' Options). '
+					. 'Nothing was read or changed.'
+				);
+			}
+		}
+	}
+
+	/**
+	 * Convert Forms runs a form's PHP Scripts (params.phpscripts: formprepare,
+	 * formdisplay, formprocess, afterformsubmission) and the Pro "PHP" task
+	 * app's code (options.php) through NRFramework\Executer, so that text is PHP
+	 * run on the server. Convert Forms' editor lets anyone who can edit forms
+	 * write it; these tools only let a Super User add or change it. Removing
+	 * code is allowed.
+	 *
+	 * @param array<string, mixed> $before Scripts as stored (name => code).
+	 * @param array<string, mixed> $after  Scripts as they would be saved.
+	 *
+	 * @throws \RuntimeException when a non-Super User would add or change code.
+	 */
+	protected function cfGuardPhpCode(User $actor, array $before, array $after, string $what): void
+	{
+		if ($actor->authorise('core.admin')) {
+			return;
+		}
+
+		foreach ($after as $name => $code) {
+			if (!is_scalar($code) || trim((string) $code) === '') {
+				continue;
+			}
+
+			if (!array_key_exists($name, $before) || (string) $before[$name] !== (string) $code) {
+				throw new \RuntimeException(
+					$what . ' run as PHP on the server. Only a Super User may add or change PHP code '
+					. 'through these tools. Nothing was changed.'
+				);
+			}
+		}
+	}
+
+	/**
+	 * Mask values whose key names a secret (password, token, API key, …) in a
+	 * decoded options or payload blob: "••••" plus the last four characters.
+	 *
+	 * The free edition's apps (email, AcyMailing) store no secrets in task
+	 * options, but Pro and third-party apps can, and task history payloads echo
+	 * what was sent to the app. Connection credentials are never read at all.
+	 */
+	protected function cfMaskSecrets(mixed $value, bool $reveal = false): mixed
+	{
+		if ($reveal || !is_array($value)) {
+			return $value;
+		}
+
+		$out = [];
+
+		foreach ($value as $key => $item) {
+			if (is_array($item)) {
+				$out[$key] = $this->cfMaskSecrets($item);
+				continue;
+			}
+
+			if (is_string($key) && $this->cfIsSecretKey($key) && is_scalar($item) && (string) $item !== '') {
+				$item       = (string) $item;
+				$out[$key]  = '••••' . (mb_strlen($item) > 8 ? mb_substr($item, -4) : '');
+				continue;
+			}
+
+			$out[$key] = $item;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Put the stored value back wherever a patch sends a masked placeholder, so
+	 * a caller that round-trips get_convertforms_task output cannot overwrite a
+	 * secret with its mask.
+	 */
+	protected function cfRestoreMasked(array $patch, array $stored): array
+	{
+		foreach ($patch as $key => $value) {
+			if (is_array($value) && isset($stored[$key]) && is_array($stored[$key])) {
+				$patch[$key] = $this->cfRestoreMasked($value, $stored[$key]);
+				continue;
+			}
+
+			if (is_string($value) && str_starts_with($value, '••••') && array_key_exists($key, $stored)) {
+				$patch[$key] = $stored[$key];
+			}
+		}
+
+		return $patch;
+	}
+
+	private function cfIsSecretKey(string $key): bool
+	{
+		$key = strtolower(str_replace('-', '_', $key));
+
+		return preg_match('/(^|_)(password|passwd|pass|secret|client_secret|token|access_token|api_?key|apikey|private_?key|access_?key|auth_?token|authorization|bearer)($|_)/', $key) === 1;
 	}
 
 	/**

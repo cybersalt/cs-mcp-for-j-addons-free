@@ -28,7 +28,10 @@ final class UpdateFormFieldTool extends AbstractTool
 	{
 		return 'Change properties of one field on a Convert Forms form. Identify the '
 			. 'field by map key ("fields2"), key ("2") or name ("email"). Only the '
-			. 'properties you send are changed; send null to remove one. Renaming a '
+			. 'properties you send are changed; send null to remove one (an option '
+			. 'Convert Forms\' editor always stores goes back to its default). Any '
+			. 'editor default the field lacks is added, which repairs fields saved '
+			. 'without them by older versions of this add-on. Renaming a '
 			. 'field is guarded — submitted values are keyed by the old name, so the '
 			. 'tool refuses unless you confirm, and tells you how many submissions '
 			. 'would be affected.';
@@ -44,7 +47,7 @@ final class UpdateFormFieldTool extends AbstractTool
 				'field'   => ['type' => 'string', 'description' => 'Map key, key, or name of the field to update.'],
 				'settings' => [
 					'type'        => 'object',
-					'description' => 'Properties to change, e.g. {"label":"Your email","required":true,"placeholder":"you@example.com"}. null removes a property. For choice fields pass "choices": [{label, value}].',
+					'description' => 'Properties to change, e.g. {"label":"Your email","required":true,"placeholder":"you@example.com"}. null removes a property. For choice fields pass "choices": [{label, value}]. heading_type takes h1-h6; for html fields the content is "text".',
 				],
 				'confirm_rename' => [
 					'type'        => 'boolean',
@@ -62,6 +65,8 @@ final class UpdateFormFieldTool extends AbstractTool
 		if (!$this->ensureCfLoaded()) {
 			return $this->notInstalledError();
 		}
+
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.edit');
 
 		$formId = $this->requirePositiveInt($arguments, 'form_id');
 		$form   = $this->cfFetchForm($formId);
@@ -88,6 +93,10 @@ final class UpdateFormFieldTool extends AbstractTool
 
 		$field = $fields[$mapKey];
 		$type  = strtolower((string) ($field['type'] ?? ''));
+
+		// Same friendly names as on create (html "value" → "text", submit
+		// "label" → "text", heading "headingtype" → "heading_type").
+		$settings = $this->cfApplyFieldAliases($type, $settings);
 
 		// key and type are structural. Changing key would desynchronise it from
 		// the map key; changing type would leave type-specific properties from
@@ -155,6 +164,14 @@ final class UpdateFormFieldTool extends AbstractTool
 			$field[$prop] = $this->cfNormaliseFieldValue($value);
 		}
 
+		// A field stored bare by an earlier version of this add-on gets the
+		// editor's defaults for whatever it lacks, so editing it also repairs it.
+		[$field, $backfilled] = $this->cfBackfillFieldDefaults($field);
+
+		if ($type === 'heading') {
+			$field['heading_type'] = $this->cfHeadingTag($field['heading_type'] ?? 'h2');
+		}
+
 		if (in_array($type, ['dropdown', 'radio', 'checkbox'], true)) {
 			try {
 				$this->cfAssertHasChoices($field, $type);
@@ -184,6 +201,7 @@ final class UpdateFormFieldTool extends AbstractTool
 			'map_key' => $mapKey,
 			'field'   => $field,
 			'changed' => array_keys($settings),
+			'defaults_added' => $backfilled,
 			'renamed_from' => $renamed ? $oldName : null,
 			'orphaned_submission_values' => $renamed ? $this->submissionsHolding($formId, $oldName) : 0,
 			'save_warnings' => $out['error'] ?: null,

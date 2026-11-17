@@ -54,6 +54,8 @@ final class ListFormsTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage');
+
 		$table = $this->cfTableName();
 
 		$q = $this->db->getQuery(true)

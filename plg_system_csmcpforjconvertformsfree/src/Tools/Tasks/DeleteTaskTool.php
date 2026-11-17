@@ -61,6 +61,8 @@ final class DeleteTaskTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.edit');
+
 		if (!$this->cfTableExists('tasks')) {
 			return ToolResult::error('#__convertforms_tasks does not exist (the Tasks engine arrived in Convert Forms 5.0).');
 		}
@@ -161,7 +163,8 @@ final class DeleteTaskTool extends AbstractTool
 	{
 		$formIds = [];
 		foreach ($rows as $row) {
-			if (strtolower((string) $row['app']) === 'email') {
+			// Deleting a disabled task changes nothing about who gets emailed.
+			if (strtolower((string) $row['app']) === 'email' && (int) $row['state'] === 1) {
 				$formIds[(int) $row['form_id']] = true;
 			}
 		}

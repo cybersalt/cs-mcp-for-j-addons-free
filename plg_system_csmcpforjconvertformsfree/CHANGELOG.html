@@ -1,9 +1,20 @@
 <div class="changelog-container">
 <h1>📋 MCP for Convert Forms — Changelog</h1>
-<h2>📝 Unreleased (ships with this add-on's next release)</h2>
+<h2>🚀 Version 1.0.5 (November 17, 2026)</h2>
 <ul>
 <li>📝 <strong>Uses the core extension's current name.</strong> The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.</li>
 <li>🔧 <strong>Joomla's Changelog button now works for this add-on.</strong> On System → Manage → Extensions it shows this add-on's release notes.</li>
+<li>🐛 <strong>Forms made with <code>create_convertforms_form</code> and <code>add_convertforms_form_field</code> now look the same as forms made in Convert Forms' own editor.</strong> Each field starts from the editor's settings for its type, so labels show, the submit button has its size and colours, headings get their heading tag, and the text of an HTML field is kept. The form also gets the editor's design settings, so it no longer has a black border. (GitHub issue #14)</li>
+<li>🐛 <strong>New fields are optional unless you ask for required.</strong> Before, a field sent without <code>required</code> looked optional but was checked as required when the form was submitted.</li>
+<li>✨ <strong>Easier field settings.</strong> An HTML field takes its content as <code>text</code>, <code>html</code> or <code>value</code>; a submit button takes its words as <code>text</code> or <code>label</code>; a heading takes its tag as <code>heading_type</code> (h1 to h6) or <code>level</code>.</li>
+<li>🔧 <strong><code>update_convertforms_form_field</code> repairs older fields.</strong> It adds any of the editor's settings that a field is missing, so a field made by an earlier version renders properly once it is edited.</li>
+<li>✨ <strong><code>list_convertforms_field_types</code> with <code>type</code> now shows the editor's settings for that type.</strong></li>
+<li>🔒 <strong>Tighter permission checks.</strong> Each tool now also needs the matching permission in Convert Forms itself, as its own screens do.</li>
+<li>🔒 <strong>Task settings that look like passwords, tokens or keys are hidden</strong> in task results, unless someone with Convert Forms' Options permission asks to see them.</li>
+<li>🐛 <strong>Deleting a disabled email task no longer asks for confirmation.</strong> The warning about a form losing its last email notification now counts only tasks that are switched on.</li>
+<li>🔒 <strong>Only a Super User can add or change PHP code through these tools</strong> (a form's PHP Scripts, and the PHP task in Convert Forms Pro). Removing code is still allowed.</li>
+<li>✅ <strong>Tested with Convert Forms 5.2.7</strong>, Free and Pro, on Joomla 5.4 and 6.1.</li>
+<li>📦 The package now includes <code>LICENSE.txt</code>.</li>
 </ul>
 <h2>🚀 Version 1.0.4 (October 20, 2026)</h2>
 <ul>

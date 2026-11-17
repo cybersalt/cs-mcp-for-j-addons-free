@@ -36,7 +36,10 @@ final class GetTaskTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'required' => ['id'],
-			'properties' => ['id' => ['type' => 'integer', 'description' => 'Task id.']],
+			'properties' => [
+				'id'     => ['type' => 'integer', 'description' => 'Task id.'],
+				'reveal' => ['type' => 'boolean', 'description' => 'Show option values that look like secrets (passwords, tokens, API keys) in full. Needs Convert Forms\' Configure ACL & Options permission. Default false: they are masked.'],
+			],
 			'additionalProperties' => false,
 		];
 	}
@@ -49,11 +52,18 @@ final class GetTaskTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage');
+
 		if (!$this->cfTableExists('tasks')) {
 			return ToolResult::error('#__convertforms_tasks does not exist (the Tasks engine arrived in Convert Forms 5.0).');
 		}
 
-		$id = $this->requirePositiveInt($arguments, 'id');
+		$id     = $this->requirePositiveInt($arguments, 'id');
+		$reveal = !empty($arguments['reveal']);
+
+		if ($reveal) {
+			$this->cfRequireAccess($actor, 'core.admin');
+		}
 
 		$row = $this->db->setQuery(
 			$this->db->getQuery(true)
@@ -86,7 +96,7 @@ final class GetTaskTool extends AbstractTool
 			'created'       => $row['created'],
 			'created_by'    => (int) $row['created_by'],
 			'modified'      => $row['modified'],
-			'options'       => $this->cfDecodeParams($row['options']),
+			'options'       => $this->cfMaskSecrets($this->cfDecodeParams($row['options']), $reveal),
 			'conditions'    => $this->cfDecodeParams($row['conditions']),
 		];
 

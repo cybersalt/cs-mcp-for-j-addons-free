@@ -73,6 +73,8 @@ final class ReorderFormFieldsTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.edit');
+
 		$formId = $this->requirePositiveInt($arguments, 'form_id');
 		$form   = $this->cfFetchForm($formId);
 

@@ -59,6 +59,8 @@ final class UpdateFormTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage', 'core.edit');
+
 		$id      = $this->requirePositiveInt($arguments, 'id');
 		$current = $this->cfFetchForm($id);
 
@@ -82,6 +84,13 @@ final class UpdateFormTool extends AbstractTool
 		}
 
 		$params = $this->cfMergeParams($current['params'], $patch);
+
+		$this->cfGuardPhpCode(
+			$actor,
+			is_array($current['params']['phpscripts'] ?? null) ? $current['params']['phpscripts'] : [],
+			is_array($params['phpscripts'] ?? null) ? $params['phpscripts'] : [],
+			'A form\'s PHP Scripts'
+		);
 
 		$data = [
 			'id'       => $id,

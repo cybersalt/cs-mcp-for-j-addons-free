@@ -54,6 +54,8 @@ final class ListTaskHistoryTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage');
+
 		if (!$this->cfTableExists('tasks_history')) {
 			return ToolResult::error('#__convertforms_tasks_history does not exist (the Tasks engine arrived in Convert Forms 5.0).');
 		}
@@ -133,7 +135,8 @@ final class ListTaskHistoryTool extends AbstractTool
 			}
 
 			if (array_key_exists('payload', $row)) {
-				$entry['payload'] = $this->cfDecodeParams($row['payload']) ?: $row['payload'];
+				$decoded          = $this->cfDecodeParams($row['payload']);
+				$entry['payload'] = $decoded !== [] ? $this->cfMaskSecrets($decoded) : $row['payload'];
 			}
 
 			$entries[] = $entry;

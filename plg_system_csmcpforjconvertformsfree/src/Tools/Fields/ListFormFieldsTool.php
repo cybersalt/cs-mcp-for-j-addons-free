@@ -56,6 +56,8 @@ final class ListFormFieldsTool extends AbstractTool
 			return $this->notInstalledError();
 		}
 
+		$this->cfRequireAccess($actor, 'convertforms.forms.manage');
+
 		$formId = $this->requirePositiveInt($arguments, 'form_id');
 		$form   = $this->cfFetchForm($formId);
 
