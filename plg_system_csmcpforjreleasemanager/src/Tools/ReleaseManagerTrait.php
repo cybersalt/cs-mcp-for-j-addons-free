@@ -106,8 +106,8 @@ trait ReleaseManagerTrait
 	{
 		$filename = trim($filename);
 
-		if ($filename === '' || $filename !== basename(str_replace('\\', '/', $filename)) || str_contains($filename, '..')) {
-			return ['hash' => null, 'path' => '', 'error' => 'filename must be a bare file name (no folders), got "' . $filename . '".'];
+		if (($error = $this->csrmFilenameError($filename)) !== null) {
+			return ['hash' => null, 'path' => '', 'error' => $error];
 		}
 
 		$db      = \Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
@@ -120,6 +120,10 @@ trait ReleaseManagerTrait
 
 		if ($element === '') {
 			return ['hash' => null, 'path' => '', 'error' => 'Package ' . $packageId . ' not found, or it has no extension_element, so its downloads folder is unknown.'];
+		}
+
+		if ($this->csrmElementError($element) !== null) {
+			return ['hash' => null, 'path' => '', 'error' => 'Package ' . $packageId . ' has an extension_element that is not a plain element name, so its downloads folder cannot be used. Fix the package first.'];
 		}
 
 		$relative = 'media/com_csreleasemanager/downloads/' . $element . '/' . $filename;
@@ -139,6 +143,279 @@ trait ReleaseManagerTrait
 	}
 
 	// -----------------------------------------------------------------------
+	// Input checks the admin forms apply (their filters run in the controller,
+	// not in the models the tools call, so the tools apply them here)
+	// -----------------------------------------------------------------------
+
+	/**
+	 * A version's filename is joined onto the package's downloads folder when
+	 * the file is served, hashed or deleted, so it must be a bare file name,
+	 * in the characters Release Manager's own upload keeps (File::makeSafe()).
+	 * Returns null when it is, or the error to show.
+	 */
+	private function csrmFilenameError(string $filename): ?string
+	{
+		$filename = trim($filename);
+
+		if ($filename === '' || $filename !== basename(str_replace('\\', '/', $filename)) || str_contains($filename, '..')
+			|| !preg_match('/^[A-Za-z0-9_-][A-Za-z0-9._ -]*$/', $filename)) {
+			return 'filename must be a bare file name (no folders), got "' . $filename . '".';
+		}
+
+		return null;
+	}
+
+	/**
+	 * extension_element names the package's downloads folder, which Release
+	 * Manager moves when the element changes. The admin form only offers
+	 * installed extensions; a tool takes any text, so it must be a plain
+	 * Joomla element name. Returns null when it is, or the error to show.
+	 */
+	private function csrmElementError(string $element): ?string
+	{
+		if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/', $element) || str_contains($element, '..')) {
+			return 'extension_element must be a Joomla element name (letters, digits, dot, dash, underscore, e.g. "pkg_stageit"), got "' . $element . '".';
+		}
+
+		return null;
+	}
+
+	/** The admin forms' default text filter: removes all HTML. */
+	private function csrmCleanText(mixed $value): string
+	{
+		return trim((string) \Joomla\CMS\Filter\InputFilter::getInstance()->clean((string) $value, 'string'));
+	}
+
+	/**
+	 * The admin forms' filter="safehtml": Joomla's block-list instance, which
+	 * removes dangerous tags and attributes but keeps links and formatting.
+	 * (The default InputFilter instance is an allow-list with nothing allowed:
+	 * it strips every tag.)
+	 */
+	private function csrmSafeHtml(mixed $value): string
+	{
+		return (string) \Joomla\CMS\Filter\InputFilter::getInstance(
+			[],
+			[],
+			\Joomla\CMS\Filter\InputFilter::ONLY_BLOCK_DEFINED_TAGS,
+			\Joomla\CMS\Filter\InputFilter::ONLY_BLOCK_DEFINED_ATTRIBUTES
+		)->clean((string) $value, 'html');
+	}
+
+	/** null when $url is empty or an http(s) URL of at most 500 characters, else the error. */
+	private function csrmUrlError(string $field, string $url): ?string
+	{
+		if ($url !== '' && (filter_var($url, FILTER_VALIDATE_URL) === false || !preg_match('#^https?://#i', $url))) {
+			return $field . ' must be an http(s) URL or an empty string; got "' . $url . '".';
+		}
+
+		if (mb_strlen($url) > 500) {
+			return $field . ' is longer than 500 characters.';
+		}
+
+		return null;
+	}
+
+	/**
+	 * Apply the package admin form's filters to the original package fields a
+	 * create or update is about to save (only the keys present in $data).
+	 *
+	 * @param  array<string,mixed> $data
+	 * @return array{data: array<string,mixed>, errors: string[]}
+	 */
+	private function csrmCleanPackageCore(array $data): array
+	{
+		$errors = [];
+
+		foreach (['title', 'description'] as $field) {
+			if (\array_key_exists($field, $data)) {
+				$data[$field] = $this->csrmCleanText($data[$field]);
+			}
+		}
+
+		if (\array_key_exists('title', $data) && $data['title'] === '') {
+			$errors[] = 'title cannot be empty.';
+		}
+
+		// An alias goes into URLs: the same cleaning Joomla gives every alias.
+		if (\array_key_exists('alias', $data) && (string) $data['alias'] !== '') {
+			$data['alias'] = \Joomla\CMS\Filter\OutputFilter::stringURLSafe((string) $data['alias']);
+
+			if ($data['alias'] === '') {
+				$errors[] = 'alias has no letters or digits left after cleaning; send another or leave it out.';
+			}
+		}
+
+		if (\array_key_exists('extension_element', $data)) {
+			$data['extension_element'] = trim((string) $data['extension_element']);
+
+			if (($elementError = $this->csrmElementError($data['extension_element'])) !== null) {
+				$errors[] = $elementError;
+			}
+		}
+
+		if (\array_key_exists('extension_folder', $data)) {
+			$data['extension_folder'] = trim((string) $data['extension_folder']);
+
+			if (!preg_match('/^[A-Za-z0-9_-]{0,100}$/', $data['extension_folder'])) {
+				$errors[] = 'extension_folder must be a plugin group name such as "system" (letters, digits, dash, underscore), or empty.';
+			}
+		}
+
+		if (\array_key_exists('denial_message', $data)) {
+			$data['denial_message'] = $this->csrmSafeHtml($data['denial_message']);
+		}
+
+		if (\array_key_exists('renewal_url', $data)) {
+			$data['renewal_url'] = trim((string) $data['renewal_url']);
+
+			if (($urlError = $this->csrmUrlError('renewal_url', $data['renewal_url'])) !== null) {
+				$errors[] = $urlError;
+			}
+		}
+
+		if (\array_key_exists('user_groups', $data)) {
+			$missing = $this->csrmMissingGroups((array) json_decode((string) $data['user_groups'], true));
+
+			if ($missing !== []) {
+				$errors[] = 'user_groups: no such user group ' . implode(', ', $missing) . '.';
+			}
+		}
+
+		return ['data' => $data, 'errors' => $errors];
+	}
+
+	/**
+	 * Apply the version admin form's filters to the text fields a create or
+	 * update is about to save (only the keys present in $data).
+	 *
+	 * @param  array<string,mixed> $data
+	 * @return array{data: array<string,mixed>, errors: string[]}
+	 */
+	private function csrmCleanVersionFields(array $data): array
+	{
+		$errors = [];
+
+		foreach (['version', 'min_joomla_version', 'max_joomla_version', 'min_php_version'] as $field) {
+			if (\array_key_exists($field, $data)) {
+				$data[$field] = $this->csrmCleanText($data[$field]);
+			}
+		}
+
+		if (\array_key_exists('version', $data) && $data['version'] === '') {
+			$errors[] = 'version cannot be empty.';
+		}
+
+		if (\array_key_exists('filename', $data)) {
+			$data['filename'] = trim((string) $data['filename']);
+
+			if (($filenameError = $this->csrmFilenameError($data['filename'])) !== null) {
+				$errors[] = $filenameError;
+			}
+		}
+
+		if (\array_key_exists('release_notes', $data)) {
+			$data['release_notes'] = $this->csrmSafeHtml($data['release_notes']);
+		}
+
+		return ['data' => $data, 'errors' => $errors];
+	}
+
+	// -----------------------------------------------------------------------
+	// Security level on package versions (Release Manager 1.17.0, addons-free#12)
+	// -----------------------------------------------------------------------
+
+	/**
+	 * The levels of Release Manager's "Security release" list, as Joomla shows
+	 * them. A method, not a constant: constants in traits need PHP 8.2.
+	 *
+	 * @return array<int,string>
+	 */
+	private static function csrmSecurityLabels(): array
+	{
+		return [1 => 'Low', 2 => 'Medium', 3 => 'High', 4 => 'Critical'];
+	}
+
+	/** The input-schema entry for security, shared by create and update. */
+	private function csrmSecuritySchema(): array
+	{
+		return [
+			'type'        => 'integer',
+			'enum'        => [0, 1, 2, 3, 4],
+			'description' => 'Security release level, Release Manager\'s "Security release" list: 0 = not a security release (clears it), '
+				. '1 = Low, 2 = Medium, 3 = High, 4 = Critical. Joomla shows it as a badge on System > Update > Extensions; the update XML '
+				. 'sends it as <security>N</security> only for 1 to 4. Needs Release Manager 1.17.0 or later.',
+		];
+	}
+
+	/**
+	 * Check a security argument the way the admin list allows it: 1 to 4 is a
+	 * level, and 0, "" or null mean "not a security release". Anything else is
+	 * refused. The level is returned as 0 for none, because Table::bind() skips
+	 * nulls; PackageversionTable::check() turns 0 into NULL and store() writes it.
+	 *
+	 * @return array{level: int, error: ?string}
+	 */
+	private function csrmSecurityLevel(mixed $value): array
+	{
+		if ($value === null || $value === '' || $value === false) {
+			return ['level' => 0, 'error' => null];
+		}
+
+		if (\is_int($value) || (\is_string($value) && preg_match('/^\d$/', trim($value)))) {
+			$level = (int) $value;
+
+			if ($level >= 0 && $level <= 4) {
+				return ['level' => $level, 'error' => null];
+			}
+		}
+
+		return ['level' => 0, 'error' => 'security must be 0 (not a security release), 1 (Low), 2 (Medium), 3 (High) or 4 (Critical); got ' . json_encode($value) . '.'];
+	}
+
+	/** The stored security column of a version as an int 1-4, or null for none. */
+	private function csrmStoredSecurity(int $versionId): ?int
+	{
+		$db    = \Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+		$value = $db->setQuery(
+			$db->getQuery(true)
+				->select($db->quoteName('security'))
+				->from($db->quoteName('#__csrm_package_versions'))
+				->where($db->quoteName('id') . ' = ' . $versionId)
+		)->loadResult();
+
+		return $value === null ? null : (int) $value;
+	}
+
+	/** Whether the versions table has a column (security arrived in Release Manager 1.17.0). */
+	private function csrmHasVersionColumn(string $column): bool
+	{
+		$db = \Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+
+		return isset(array_change_key_case($db->getTableColumns('#__csrm_package_versions'), CASE_LOWER)[strtolower($column)]);
+	}
+
+	/**
+	 * Adds security (int or null) and security_label to a version row read from
+	 * the database. A row from a Release Manager without the column is left alone.
+	 *
+	 * @param  array<string,mixed> $row
+	 * @return array<string,mixed>
+	 */
+	private function csrmWithSecurityLabel(array $row): array
+	{
+		if (!\array_key_exists('security', $row)) {
+			return $row;
+		}
+
+		$level                 = $row['security'] === null ? 0 : (int) $row['security'];
+		$row['security']       = $level >= 1 && $level <= 4 ? $level : null;
+		$row['security_label'] = $row['security'] === null ? 'Not a security release' : self::csrmSecurityLabels()[$level];
+
+		return $row;
+	}
+
+	// -----------------------------------------------------------------------
 	// Package fields added in Release Manager 1.9-1.13 (addons-free#9)
 	// -----------------------------------------------------------------------
 
@@ -146,16 +423,22 @@ trait ReleaseManagerTrait
 	 * The package columns the create/update tools could not set before 1.12.0.
 	 * Each was added by a later Release Manager (signup_url 1.9, catalog_* 1.10,
 	 * the rest 1.13), so a site may lack some; csrmPackageFields() checks.
+	 * A method, not a constant: constants in traits need PHP 8.2.
+	 *
+	 * @return string[]
 	 */
-	private const CSRM_PACKAGE_FIELDS = [
-		'relink_hint', 'feed_key', 'successor_package_id',
-		'renewable_user_groups', 'renewable_denial_message',
-		'group_install_limits', 'license_family', 'install_limit_message',
-		'update_xml_url', 'download_url', 'signup_url',
-		'catalog_slug', 'catalog_metadata',
-	];
+	private static function csrmPackageFieldNames(): array
+	{
+		return [
+			'relink_hint', 'feed_key', 'successor_package_id',
+			'renewable_user_groups', 'renewable_denial_message',
+			'group_install_limits', 'license_family', 'install_limit_message',
+			'update_xml_url', 'download_url', 'signup_url',
+			'catalog_slug', 'catalog_metadata',
+		];
+	}
 
-	/** The input-schema entries for CSRM_PACKAGE_FIELDS, shared by create and update. */
+	/** The input-schema entries for csrmPackageFieldNames(), shared by create and update. */
 	private function csrmPackageFieldsSchema(): array
 	{
 		$url = static fn (string $what): array => ['type' => 'string', 'description' => $what . ' Empty string clears it. Must be an http(s) URL.'];
@@ -207,7 +490,7 @@ trait ReleaseManagerTrait
 		$skipped = [];
 		$errors  = [];
 
-		foreach (self::CSRM_PACKAGE_FIELDS as $field) {
+		foreach (self::csrmPackageFieldNames() as $field) {
 			if (!array_key_exists($field, $arguments)) {
 				continue;
 			}
@@ -338,15 +621,8 @@ trait ReleaseManagerTrait
 
 				case 'renewable_denial_message':
 				case 'install_limit_message':
-					// The form's filter="safehtml": Joomla's block-list instance, which removes
-					// dangerous tags and attributes but keeps links and formatting. (The default
-					// InputFilter instance is an allow-list with nothing allowed: it strips every tag.)
-					$data[$field] = (string) \Joomla\CMS\Filter\InputFilter::getInstance(
-						[],
-						[],
-						\Joomla\CMS\Filter\InputFilter::ONLY_BLOCK_DEFINED_TAGS,
-						\Joomla\CMS\Filter\InputFilter::ONLY_BLOCK_DEFINED_ATTRIBUTES
-					)->clean((string) $value, 'html');
+					// The form's filter="safehtml".
+					$data[$field] = $this->csrmSafeHtml($value);
 					break;
 
 				case 'update_xml_url':
@@ -354,10 +630,8 @@ trait ReleaseManagerTrait
 				case 'signup_url':
 					$url = trim((string) $value);
 
-					if ($url !== '' && (filter_var($url, FILTER_VALIDATE_URL) === false || !preg_match('#^https?://#i', $url))) {
-						$errors[] = $field . ' must be an http(s) URL or an empty string; got "' . $url . '".';
-					} elseif (mb_strlen($url) > 500) {
-						$errors[] = $field . ' is longer than 500 characters.';
+					if (($urlError = $this->csrmUrlError($field, $url)) !== null) {
+						$errors[] = $urlError;
 					} else {
 						$data[$field] = $url;
 					}

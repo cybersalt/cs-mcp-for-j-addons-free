@@ -82,12 +82,6 @@ final class UpdateReleaseManagerPackageTool extends AbstractTool
 			return ToolResult::error('Package ' . $id . ' not found.');
 		}
 
-		$extra = $this->csrmPackageFields($arguments, $id);
-
-		if ($extra['errors'] !== []) {
-			return ToolResult::json(['ok' => false, 'id' => $id, 'errors' => $extra['errors'], 'note' => 'Nothing was saved.'], true);
-		}
-
 		$data = ['id' => $id];
 		foreach (self::UPDATABLE as $key) {
 			if (array_key_exists($key, $arguments)) {
@@ -97,7 +91,15 @@ final class UpdateReleaseManagerPackageTool extends AbstractTool
 		if (isset($arguments['user_groups']) && is_array($arguments['user_groups'])) {
 			$data['user_groups'] = json_encode(array_map('intval', $arguments['user_groups']));
 		}
-		$data += $extra['data'];
+
+		$core  = $this->csrmCleanPackageCore($data);
+		$extra = $this->csrmPackageFields($arguments, $id);
+
+		if ($core['errors'] !== [] || $extra['errors'] !== []) {
+			return ToolResult::json(['ok' => false, 'id' => $id, 'errors' => array_merge($core['errors'], $extra['errors']), 'note' => 'Nothing was saved.'], true);
+		}
+
+		$data = $core['data'] + $extra['data'];
 
 		// PackageModel::save() reads "install_limit posted without group_install_limits" as
 		// the admin form's repeatable subform with every row removed, and empties the
@@ -119,7 +121,7 @@ final class UpdateReleaseManagerPackageTool extends AbstractTool
 		}
 
 		$changed = array_values(array_diff(array_keys($data), ['id']));
-		$verify  = $this->csrmVerifyPackage($id, array_intersect_key($data, array_flip(array_merge(self::CSRM_PACKAGE_FIELDS, ['user_groups']))));
+		$verify  = $this->csrmVerifyPackage($id, array_intersect_key($data, array_flip(array_merge(self::csrmPackageFieldNames(), ['user_groups']))));
 
 		$response = [
 			'ok'             => $verify['mismatched'] === [],

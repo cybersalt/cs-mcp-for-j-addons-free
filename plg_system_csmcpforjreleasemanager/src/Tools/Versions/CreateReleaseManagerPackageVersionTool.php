@@ -36,7 +36,10 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 			. 'parses the (int) of this value to decide the regex range, so "6" or "6.99" both produce '
 			. '"(5|6)\\.[0-9]+", but "6" is cleaner), '
 			. 'min_php_version (default "8.1" — use "8.3" for new releases since older PHP is unsupported), '
-			. 'state (1 published, 0 draft). '
+			. 'state (1 published, 0 draft), '
+			. 'security (Release Manager\'s "Security release" level: 0 none, 1 Low, 2 Medium, 3 High, 4 Critical; '
+			. 'sent in the update XML as <security> so Joomla shows a badge; needs Release Manager 1.17.0+). '
+			. 'Text is cleaned the way Release Manager\'s edit screen cleans it. '
 			. 'IMPORTANT: this tool does NOT upload the zip itself — the file must already exist '
 			. 'on disk under the package\'s downloads folder before you call this.';
 	}
@@ -59,6 +62,7 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 				'max_joomla_version' => ['type' => 'string'],
 				'min_php_version'    => ['type' => 'string'],
 				'state'              => ['type' => 'integer', 'enum' => [0, 1]],
+				'security'           => $this->csrmSecuritySchema(),
 			],
 			'additionalProperties' => false,
 		];
@@ -75,6 +79,22 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 		$packageId = $this->requirePositiveInt($arguments, 'package_id');
 		$version   = $this->requireString($arguments, 'version');
 		$filename  = $this->requireString($arguments, 'filename');
+
+		if (($filenameError = $this->csrmFilenameError($filename)) !== null) {
+			return ToolResult::error('No version was created: ' . $filenameError);
+		}
+
+		$security = $this->csrmSecurityLevel($arguments['security'] ?? null);
+
+		if ($security['error'] !== null) {
+			return ToolResult::error('No version was created: ' . $security['error']);
+		}
+
+		$hasSecurityColumn = $this->csrmHasVersionColumn('security');
+
+		if ($security['level'] > 0 && !$hasSecurityColumn) {
+			return ToolResult::error('No version was created: this site\'s Release Manager has no security level on versions yet. It arrived in Release Manager 1.17.0: update Release Manager first, or leave security out.');
+		}
 
 		$sha256     = strtolower(trim((string) ($arguments['sha256'] ?? '')));
 		$shaSource  = 'supplied';
@@ -110,7 +130,19 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 			'state'              => isset($arguments['state']) ? (int) $arguments['state'] : 1,
 		];
 
-		$model  = $this->csrmModel('Packageversion');
+		if ($hasSecurityColumn) {
+			$data['security'] = $security['level'];
+		}
+
+		$cleaned = $this->csrmCleanVersionFields($data);
+
+		if ($cleaned['errors'] !== []) {
+			return ToolResult::error('No version was created: ' . implode(' ', $cleaned['errors']));
+		}
+
+		$data    = $cleaned['data'];
+		$version = $data['version'];
+		$model   = $this->csrmModel('Packageversion');
 		$result = $this->saveAdminModel($model, $data);
 
 		if ($result['id'] <= 0) {
@@ -130,7 +162,7 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 			'id'         => $result['id'],
 			'package_id' => $packageId,
 			'version'    => $version,
-			'filename'   => $filename,
+			'filename'   => $data['filename'],
 			'sha256'     => $stored,
 			'sha256_source' => $shaSource === 'computed'
 				? 'computed from ' . $fileOnDisk
@@ -138,6 +170,19 @@ final class CreateReleaseManagerPackageVersionTool extends AbstractTool
 			'is_latest'  => $data['is_latest'],
 			'edit_url'   => 'index.php?option=com_csreleasemanager&task=packageversion.edit&id=' . $result['id'],
 		];
+
+		if ($hasSecurityColumn) {
+			$storedSecurity       = $this->csrmStoredSecurity($result['id']);
+			$response['security'] = $storedSecurity;
+
+			if ($storedSecurity !== ($security['level'] > 0 ? $security['level'] : null)) {
+				$response['ok'] = false;
+				$response['not_stored_as_sent'] = ['security' => ['sent' => $security['level'], 'stored' => $storedSecurity]];
+
+				return ToolResult::json($response, true);
+			}
+		}
+
 		if (!$result['ok'] && $result['error'] !== '') {
 			$response['post_save_warning'] = $result['error'];
 		}

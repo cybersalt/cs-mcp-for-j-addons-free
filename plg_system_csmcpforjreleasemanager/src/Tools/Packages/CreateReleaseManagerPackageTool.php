@@ -99,13 +99,15 @@ final class CreateReleaseManagerPackageTool extends AbstractTool
 			'state'             => isset($arguments['state']) ? (int) $arguments['state'] : 1,
 		];
 
+		$core  = $this->csrmCleanPackageCore($data);
 		$extra = $this->csrmPackageFields($arguments, 0);
 
-		if ($extra['errors'] !== []) {
-			return ToolResult::json(['ok' => false, 'errors' => $extra['errors'], 'note' => 'Nothing was created.'], true);
+		if ($core['errors'] !== [] || $extra['errors'] !== []) {
+			return ToolResult::json(['ok' => false, 'errors' => array_merge($core['errors'], $extra['errors']), 'note' => 'Nothing was created.'], true);
 		}
 
-		$data += $extra['data'];
+		$data  = $core['data'] + $extra['data'];
+		$title = $data['title'];
 
 		$model  = $this->csrmModel('Package');
 		$result = $this->saveAdminModel($model, $data);
@@ -120,8 +122,8 @@ final class CreateReleaseManagerPackageTool extends AbstractTool
 			'ok'                => $verify['mismatched'] === [],
 			'id'                => $result['id'],
 			'title'             => $title,
-			'alias'             => $alias,
-			'extension_element' => $element,
+			'alias'             => $data['alias'],
+			'extension_element' => $data['extension_element'],
 			'is_public'         => $data['is_public'],
 			'edit_url'          => 'index.php?option=com_csreleasemanager&task=package.edit&id=' . $result['id'],
 		];

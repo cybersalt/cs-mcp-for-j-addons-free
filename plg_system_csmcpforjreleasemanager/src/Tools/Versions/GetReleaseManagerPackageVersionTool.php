@@ -25,7 +25,9 @@ final class GetReleaseManagerPackageVersionTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Fetch a single cs-release-manager package version by id, or by '
-			. '(package_id + version). Returns every column including release_notes.';
+			. '(package_id + version). Returns every column including release_notes, and on Release '
+			. 'Manager 1.17.0+ security (1 Low, 2 Medium, 3 High, 4 Critical, null = not a security '
+			. 'release) with security_label.';
 	}
 
 	public function getInputSchema(): array
@@ -66,6 +68,6 @@ final class GetReleaseManagerPackageVersionTool extends AbstractTool
 		if (!$row) {
 			return ToolResult::error('Package version not found.');
 		}
-		return ToolResult::json($row);
+		return ToolResult::json($this->csrmWithSecurityLabel($row));
 	}
 }

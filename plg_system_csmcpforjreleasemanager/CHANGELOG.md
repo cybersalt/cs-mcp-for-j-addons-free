@@ -1,5 +1,11 @@
 # MCP for Cybersalt Release Manager — Changelog
 
+## 🚀 Version 1.14.0 (November 19, 2026)
+
+- ✨ **The version tools can read and set a version's security level.** `create_release_manager_package_version` and `update_release_manager_package_version` take `security`, with the same choices as Release Manager's "Security release" list: 0 for none, 1 Low, 2 Medium, 3 High or 4 Critical. Anything else is refused. Left out of an update, the stored level is kept, and 0 clears it. `get_release_manager_package_version` and `list_release_manager_package_versions` return it with its name. Release Manager sends the level in the update XML, so Joomla shows a security badge on its Update screen. Needs Release Manager 1.17.0 or later.
+- 🔒 **Tighter input checks.** The package and version tools now clean and check text, messages, links, file names and element names the way Release Manager's own edit screens do, and refuse values those screens would not accept. Nothing is saved when a value is refused.
+- 🔒 **Package aliases are cleaned the way Joomla cleans every alias**, and the create tools return the element and file name as saved.
+
 ## 🚀 Version 1.13.0 (November 13, 2026)
 
 - 🔧 **Joomla's Changelog button now works for this add-on.** On System → Manage → Extensions it shows this add-on's release notes.

@@ -27,7 +27,9 @@ final class ListReleaseManagerPackageVersionsTool extends AbstractTool
 		return 'List cs-release-manager package versions, optionally filtered by package_id. '
 			. 'Each row is one release uploaded under a Package. Returns id, package_id, version, '
 			. 'filename, sha256, release_date, is_latest, is_stable, min_joomla_version, '
-			. 'min_php_version, download_count, state. Latest-first order.';
+			. 'max_joomla_version, min_php_version, download_count, state, created, modified, and on '
+			. 'Release Manager 1.17.0+ security (1 Low, 2 Medium, 3 High, 4 Critical, null = not a '
+			. 'security release) with security_label. Latest-first order.';
 	}
 
 	public function getInputSchema(): array
@@ -55,13 +57,20 @@ final class ListReleaseManagerPackageVersionsTool extends AbstractTool
 		$limit  = max(1, min(200, (int) ($arguments['limit'] ?? 50)));
 		$offset = max(0, (int) ($arguments['offset'] ?? 0));
 
+		$columns = [
+			'id', 'package_id', 'version', 'filename', 'sha256',
+			'release_date', 'is_latest', 'is_stable',
+			'min_joomla_version', 'max_joomla_version', 'min_php_version',
+			'download_count', 'state', 'created', 'modified',
+		];
+
+		// security arrived in Release Manager 1.17.0.
+		if ($this->csrmHasVersionColumn('security')) {
+			$columns[] = 'security';
+		}
+
 		$q = $this->db->getQuery(true)
-			->select($this->db->quoteName([
-				'id', 'package_id', 'version', 'filename', 'sha256',
-				'release_date', 'is_latest', 'is_stable',
-				'min_joomla_version', 'max_joomla_version', 'min_php_version',
-				'download_count', 'state', 'created', 'modified',
-			]))
+			->select($this->db->quoteName($columns))
 			->from($this->db->quoteName('#__csrm_package_versions'));
 
 		if (!empty($arguments['package_id'])) {
@@ -76,7 +85,10 @@ final class ListReleaseManagerPackageVersionsTool extends AbstractTool
 		$countQ->clear('select')->clear('order')->select('COUNT(*)');
 		$total = (int) $this->db->setQuery($countQ)->loadResult();
 
-		$rows = $this->db->setQuery($q, $offset, $limit)->loadAssocList() ?: [];
+		$rows = array_map(
+			fn (array $row): array => $this->csrmWithSecurityLabel($row),
+			$this->db->setQuery($q, $offset, $limit)->loadAssocList() ?: []
+		);
 
 		return ToolResult::json([
 			'total'    => $total,

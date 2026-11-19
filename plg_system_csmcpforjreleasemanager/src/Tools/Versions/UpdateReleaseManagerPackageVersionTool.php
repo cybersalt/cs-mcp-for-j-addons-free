@@ -36,7 +36,11 @@ final class UpdateReleaseManagerPackageVersionTool extends AbstractTool
 			. 'fields you supply are changed. Pass is_latest:1 to promote this row — '
 			. 'cs-release-manager auto-unsets is_latest on the other versions of the same '
 			. 'package. Changing filename without supplying sha256 re-computes sha256 from the '
-			. 'new file, so the update feed never advertises the checksum of the old file.';
+			. 'new file, so the update feed never advertises the checksum of the old file. '
+			. 'security sets Release Manager\'s "Security release" level (0 none, 1 Low, 2 Medium, 3 High, '
+			. '4 Critical), sent in the update XML as <security> so Joomla shows a badge; left out, the '
+			. 'stored level is kept. Needs Release Manager 1.17.0+. Text is cleaned the way Release '
+			. 'Manager\'s edit screen cleans it.';
 	}
 
 	public function getInputSchema(): array
@@ -57,6 +61,7 @@ final class UpdateReleaseManagerPackageVersionTool extends AbstractTool
 				'max_joomla_version' => ['type' => 'string'],
 				'min_php_version'    => ['type' => 'string'],
 				'state'              => ['type' => 'integer', 'enum' => [0, 1, -2]],
+				'security'           => $this->csrmSecuritySchema(),
 			],
 			'additionalProperties' => false,
 		];
@@ -83,6 +88,32 @@ final class UpdateReleaseManagerPackageVersionTool extends AbstractTool
 			if (array_key_exists($key, $arguments)) {
 				$data[$key] = $arguments[$key];
 			}
+		}
+
+		$cleaned = $this->csrmCleanVersionFields($data);
+
+		if ($cleaned['errors'] !== []) {
+			return ToolResult::error('Nothing was changed: ' . implode(' ', $cleaned['errors']));
+		}
+
+		$data = $cleaned['data'];
+
+		$securitySent = null;
+		if (array_key_exists('security', $arguments)) {
+			$security = $this->csrmSecurityLevel($arguments['security']);
+
+			if ($security['error'] !== null) {
+				return ToolResult::error('Nothing was changed: ' . $security['error']);
+			}
+
+			if (!$this->csrmHasVersionColumn('security')) {
+				return ToolResult::error('Nothing was changed: this site\'s Release Manager has no security level on versions yet. It arrived in Release Manager 1.17.0: update Release Manager first, or leave security out.');
+			}
+
+			// 0, not null: Table::bind() skips nulls. PackageversionTable::check()
+			// stores 0 as NULL, which is "not a security release".
+			$data['security'] = $security['level'];
+			$securitySent     = $security['level'];
 		}
 
 		if (isset($data['sha256'])) {
@@ -128,6 +159,18 @@ final class UpdateReleaseManagerPackageVersionTool extends AbstractTool
 			'id'             => $id,
 			'fields_changed' => array_values(array_diff(array_keys($data), ['id'])),
 		];
+
+		if ($securitySent !== null) {
+			$storedSecurity       = $this->csrmStoredSecurity($id);
+			$response['security'] = $storedSecurity;
+
+			if ($storedSecurity !== ($securitySent > 0 ? $securitySent : null)) {
+				$response['ok']                 = false;
+				$response['not_stored_as_sent'] = ['security' => ['sent' => $securitySent, 'stored' => $storedSecurity]];
+
+				return ToolResult::json($response, true);
+			}
+		}
 		if ($shaNote !== null) {
 			$response['sha256']      = $data['sha256'];
 			$response['sha256_note'] = $shaNote;
