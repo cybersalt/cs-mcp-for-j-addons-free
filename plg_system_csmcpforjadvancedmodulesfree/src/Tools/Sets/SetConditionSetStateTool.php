@@ -78,6 +78,9 @@ final class SetConditionSetStateTool extends AbstractTool
 			], true);
 		}
 
+		$this->ammRequireWritableVersion();
+		$this->ammRefuseCheckedOut('#__conditions', [$id], 'Condition Set');
+
 		$model = $this->getModel('com_conditions', 'Item');
 		$pks   = [$id];
 

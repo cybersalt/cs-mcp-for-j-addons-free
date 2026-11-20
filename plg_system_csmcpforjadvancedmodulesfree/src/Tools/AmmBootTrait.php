@@ -85,17 +85,37 @@ trait AmmBootTrait
 	}
 
 	/**
-	 * 'pro' or 'free'. Pro needs the manifest's PRO suffix and Pro's own form
-	 * fields on disk, so editing a version string doesn't change the answer.
+	 * 'pro' or 'free'. Pro needs the PRO suffix on the component and on the
+	 * system plugin (the plugin decides which rule types apply), and Pro's own
+	 * form fields on disk, so editing a version string doesn't change the answer.
 	 */
 	protected function ammEdition(): string
 	{
-		$version = $this->ammVersions()['advanced_module_manager'];
-		$form    = JPATH_ADMINISTRATOR . '/components/com_advancedmodules/forms/extra.xml';
+		$versions = $this->ammVersions();
+		$form     = JPATH_ADMINISTRATOR . '/components/com_advancedmodules/forms/extra.xml';
 
-		return str_ends_with(strtoupper($version), 'PRO') && is_file($form) && str_contains((string) file_get_contents($form), 'name="extra1"')
+		return str_ends_with(strtoupper($versions['advanced_module_manager']), 'PRO')
+			&& str_ends_with(strtoupper($versions['system_plugin']), 'PRO')
+			&& is_file($form) && str_contains((string) file_get_contents($form), 'name="extra1"')
 			? 'pro'
 			: 'free';
+	}
+
+	/**
+	 * The oldest release these tools write on. 12.1.0 changed how sets save and
+	 * which rule types Free applies, and the guards here are built on that.
+	 */
+	private const AMM_MIN_VERSION = '12.1.0';
+
+	/** @throws \RuntimeException */
+	protected function ammRequireWritableVersion(): void
+	{
+		$version = $this->ammVersions()['advanced_module_manager'];
+		$plain   = (string) preg_replace('/[^0-9.].*$/', '', $version);
+
+		if ($plain === '' || version_compare($plain, self::AMM_MIN_VERSION, '<')) {
+			throw new \RuntimeException('Nothing was changed. This site runs Advanced Module Manager ' . ($version ?: 'of an unknown version') . ', and these tools only make changes on ' . self::AMM_MIN_VERSION . ' or newer. Update it from Regular Labs first. The read tools still work.');
+		}
 	}
 
 	protected function ammPluginEnabled(): bool
@@ -141,9 +161,23 @@ trait AmmBootTrait
 			throw new \RuntimeException('Advanced Module Manager tools require an authenticated user.');
 		}
 
+		$labels = [
+			'core.manage'     => 'Access Administration Interface',
+			'core.admin'      => 'Configure ACL & Options',
+			'core.create'     => 'Create',
+			'core.edit'       => 'Edit',
+			'core.edit.state' => 'Edit State',
+			'core.delete'     => 'Delete',
+		];
+		$names  = ['com_advancedmodules' => 'Advanced Module Manager', 'com_conditions' => 'Conditions', 'com_modules' => 'Modules'];
+
 		foreach (['core.manage', ...$actions] as $action) {
 			if (!$actor->authorise($action, $component)) {
-				throw new \RuntimeException('This user is not granted ' . $action . ' on ' . $component . '.');
+				throw new \RuntimeException(
+					"You need '" . ($labels[$action] ?? $action) . "' permission (" . $action . ') on '
+					. ($names[$component] ?? $component) . ' to do this. A Super User can grant it on the Permissions tab of '
+					. 'that component\'s Options, or in System → Global Configuration → Permissions.'
+				);
 			}
 		}
 	}
@@ -155,8 +189,61 @@ trait AmmBootTrait
 
 		foreach ($moduleIds as $id) {
 			if (!$actor->authorise('core.edit', 'com_modules.module.' . (int) $id)) {
-				throw new \RuntimeException('Nothing was changed. This user may not edit module ' . (int) $id . '.');
+				throw new \RuntimeException(
+					'Nothing was changed. You need \'Edit\' permission (core.edit) on module ' . (int) $id . ' to do this. A '
+					. 'Super User can grant it on the module\'s Permissions tab, or in the Options of Content → Site Modules.'
+				);
 			}
+		}
+	}
+
+	/**
+	 * Someone with the item open in the administrator would save over this
+	 * change when they press Save, so an item another user has checked out is
+	 * left alone.
+	 *
+	 * @throws \RuntimeException
+	 */
+	protected function ammRefuseCheckedOut(string $table, array $ids, string $what): void
+	{
+		$ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+
+		if ($ids === []) {
+			return;
+		}
+
+		$me   = (int) (Factory::getApplication()->getIdentity()?->id ?? 0);
+		$db   = $this->db;
+		$held = $db->setQuery(
+			'SELECT id FROM ' . $db->quoteName($table) . ' WHERE id IN (' . implode(',', $ids) . ')'
+			. ' AND checked_out IS NOT NULL AND checked_out <> 0 AND checked_out <> ' . $me
+		)->loadColumn() ?: [];
+
+		if ($held !== []) {
+			throw new \RuntimeException('Nothing was changed. ' . $what . ' ' . implode(', ', $held) . (\count($held) > 1 ? ' are' : ' is')
+				. ' open in the Joomla administrator by another user, and their Save would overwrite this change. Ask them to close it, or check it in under System → Global Check-in, then try again.');
+		}
+	}
+
+	/**
+	 * Several writes as one: all of them, or none. The vendor's own saves nest
+	 * inside as savepoints (saveByObject() uses transactionStart(true) too).
+	 */
+	protected function ammAtomically(callable $work): mixed
+	{
+		$db = $this->db;
+		$db->transactionStart(true);
+
+		try {
+			$result = $work();
+			$db->transactionCommit(true);
+
+			return $result;
+		} catch (\Throwable $e) {
+			$db->transactionRollback(true);
+			$this->ammClearCaches();
+
+			throw $e;
 		}
 	}
 
@@ -661,6 +748,8 @@ trait AmmBootTrait
 	 */
 	protected function ammSaveSet(object $set): int
 	{
+		$this->ammRequireWritableVersion();
+		$this->ammRefuseCheckedOut('#__conditions', [(int) ($set->id ?? 0)], 'Condition Set');
 		$this->ammCheckSetCost($set);
 
 		$model = $this->getModel('com_conditions', 'Item');
@@ -712,17 +801,23 @@ trait AmmBootTrait
 	 */
 	protected function ammMap(int $setId, array $moduleIds): void
 	{
+		$this->ammRequireWritableVersion();
+		$this->ammRefuseCheckedOut('#__modules', $moduleIds, 'Module');
 		$this->bootComponent('com_conditions');
 
-		foreach ($moduleIds as $moduleId) {
-			ConditionsItemModel::map($setId, self::AMM_EXTENSION, (int) $moduleId, 'modules', 'title');
-		}
+		$this->ammAtomically(static function () use ($setId, $moduleIds): void {
+			foreach ($moduleIds as $moduleId) {
+				ConditionsItemModel::map($setId, self::AMM_EXTENSION, (int) $moduleId, 'modules', 'title');
+			}
+		});
 
 		$this->ammClearCaches();
 	}
 
 	protected function ammUnmap(array $moduleIds): void
 	{
+		$this->ammRequireWritableVersion();
+		$this->ammRefuseCheckedOut('#__modules', $moduleIds, 'Module');
 		$this->bootComponent('com_conditions');
 
 		ConditionsItemModel::removeMapping(self::AMM_EXTENSION, array_map('intval', $moduleIds));
@@ -952,6 +1047,9 @@ trait AmmBootTrait
 	/** Update or create a module's #__advancedmodules row, leaving everything not named alone. */
 	protected function ammSaveModuleRow(int $moduleId, array $columns, array $extras): void
 	{
+		$this->ammRequireWritableVersion();
+		$this->ammRefuseCheckedOut('#__modules', [$moduleId], 'Module');
+
 		$db  = $this->db;
 		$row = $db->setQuery(
 			'SELECT category, color, params FROM ' . $db->quoteName('#__advancedmodules') . ' WHERE module_id = ' . $moduleId

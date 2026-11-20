@@ -68,21 +68,29 @@ final class ConvertCoreAssignmentsTool extends AbstractTool
 			return ToolResult::json(['ok' => true, 'dry_run' => true, 'message' => 'Nothing was changed. Send confirm: true to create and attach these sets.'] + $this->ammConversionReport($plan));
 		}
 
-		$done = [];
+		$this->ammRequireWritableVersion();
+		$this->ammRefuseCheckedOut('#__modules', $moduleIds, 'Module');
 
-		foreach ($plan['proposals'] as $proposal) {
-			$ids   = array_column($proposal['modules'], 'id');
-			$setId = $proposal['reuse_set_id'] ?? $this->ammSaveSet((object) [
-				'name'      => $proposal['name'],
-				'published' => 1,
-				'match_all' => 1,
-				'groups'    => [(object) ['match_all' => 1, 'ordering' => 0, 'rules' => $proposal['rules']]],
-			]);
+		// All the sets and attachments, or none, so a failure part way leaves no module half converted.
+		$done = $this->ammAtomically(function () use ($plan): array {
+			$done = [];
 
-			$this->ammMap($setId, $ids);
+			foreach ($plan['proposals'] as $proposal) {
+				$ids   = array_column($proposal['modules'], 'id');
+				$setId = $proposal['reuse_set_id'] ?? $this->ammSaveSet((object) [
+					'name'      => $proposal['name'],
+					'published' => 1,
+					'match_all' => 1,
+					'groups'    => [(object) ['match_all' => 1, 'ordering' => 0, 'rules' => $proposal['rules']]],
+				]);
 
-			$done[] = ['set_id' => $setId, 'reused' => isset($proposal['reuse_set_id']), 'name' => $proposal['name'], 'module_ids' => $ids];
-		}
+				$this->ammMap($setId, $ids);
+
+				$done[] = ['set_id' => $setId, 'reused' => isset($proposal['reuse_set_id']), 'name' => $proposal['name'], 'module_ids' => $ids];
+			}
+
+			return $done;
+		});
 
 		$report = $this->ammConversionReport($plan);
 

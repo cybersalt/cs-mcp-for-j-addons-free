@@ -1,5 +1,13 @@
 # MCP for Advanced Module Manager — Changelog
 
+## 🚀 Version 1.0.1 (November 19, 2026)
+
+- 💬 **Clearer permission messages.** When an account lacks a permission, the message now names it in plain words and says where a Super User can grant it.
+- 🔒 **Leaves alone what someone has open.** A Condition Set or module that another user has open in the Joomla administrator isn't changed, because their Save would overwrite the change. The message says how to check it in.
+- 🧱 **Needs Advanced Module Manager 12.1.0 or newer to make changes.** On an older version the read tools still work, and every change is refused with a note to update first.
+- 🔄 **All or nothing.** Converting Joomla's assignments, and putting several modules on a set, now either finish completely or change nothing.
+- ✅ **Tested with Advanced Module Manager 12.1.0, Free and Pro, on Joomla 5.4 and 6.1.**
+
 ## 🚀 Version 1.0.0 (November 7, 2026)
 
 First release. 22 tools for **Advanced Module Manager** by Regular Labs, studied against the 12.1.0 and 12.1.0PRO packages and driven on both editions on Joomla 6.1.4. Free, and works with both editions.
