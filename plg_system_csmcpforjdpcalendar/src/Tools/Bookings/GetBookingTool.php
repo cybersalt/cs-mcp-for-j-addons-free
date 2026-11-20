@@ -43,6 +43,8 @@ final class GetBookingTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'dpcalendar.admin.book');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
@@ -70,9 +72,13 @@ final class GetBookingTool extends AbstractTool
 			if (array_key_exists($k, $booking)) $booking[$k] = $booking[$k] === null ? null : (float) $booking[$k];
 		}
 		$booking['state_label'] = $this->bookingStateLabel((int) $booking['state']);
-		// Don't return raw_data by default — often bulky payment gateway payload.
-		if (isset($booking['raw_data']) && strlen((string) $booking['raw_data']) > 500) {
-			$booking['raw_data'] = '[' . strlen((string) $booking['raw_data']) . ' bytes — omitted from response]';
+		// The public token opens the customer's booking, ticket, pay and cancel links, and raw_data is
+		// the payment gateway's own payload: neither belongs in an AI transcript.
+		if (array_key_exists('token', $booking)) {
+			$booking['token'] = $booking['token'] ? '[set — not shown]' : null;
+		}
+		if (array_key_exists('raw_data', $booking)) {
+			$booking['raw_data'] = $booking['raw_data'] ? '[' . strlen((string) $booking['raw_data']) . ' bytes of payment gateway data — not shown]' : null;
 		}
 
 		$tickets = $this->db->setQuery(

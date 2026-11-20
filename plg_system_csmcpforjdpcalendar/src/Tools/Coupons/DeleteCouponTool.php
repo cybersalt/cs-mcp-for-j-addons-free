@@ -42,13 +42,15 @@ final class DeleteCouponTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'core.delete');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$model = $this->getModel('com_dpcalendar', 'Coupon');
 		$pks = [$id];
 		if (!$model->delete($pks)) {
-			$err = method_exists($model, 'getError') ? (string) $model->getError() : '';
+			$err = $this->dpModelError($model, $actor);
 			return ToolResult::error('Coupon delete failed: ' . ($err ?: 'unknown error'));
 		}
 		return ToolResult::json(['ok' => true, 'deleted_coupon_id' => $id]);

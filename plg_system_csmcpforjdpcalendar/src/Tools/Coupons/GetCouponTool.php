@@ -40,6 +40,8 @@ final class GetCouponTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 

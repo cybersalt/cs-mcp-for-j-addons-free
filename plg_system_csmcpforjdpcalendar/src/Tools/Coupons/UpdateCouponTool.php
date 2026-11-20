@@ -34,6 +34,7 @@ final class UpdateCouponTool extends AbstractTool
 		return [
 			'type' => 'object', 'required' => ['id'],
 			'properties' => [
+				'force_checked_out' => $this->dpForceCheckedOutSchema(),
 				'id' => ['type' => 'integer'],
 				'title' => ['type' => 'string'],
 				'code' => ['type' => 'string'],
@@ -54,8 +55,11 @@ final class UpdateCouponTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'core.edit');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
+		if ($refused = $this->dpRefuseCheckedOut('dpcalendar_coupons', $id, $actor, $arguments)) return $refused;
 
 		$data = ['id' => $id];
 		foreach (['title', 'code', 'type', 'publish_up', 'publish_down'] as $k) {
@@ -66,9 +70,13 @@ final class UpdateCouponTool extends AbstractTool
 		}
 		if (count($data) === 1) return ToolResult::error('Nothing to update.');
 
+		$data = $this->dpClean($data, []);
+		if ($data instanceof ToolResult) return $data;
+
 		$model = $this->getModel('com_dpcalendar', 'Coupon');
 		$out = $this->saveAdminModel($model, $data);
-		if ($out['id'] <= 0) return ToolResult::error('Coupon update failed: ' . ($out['error'] ?: 'no id returned'));
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $out['error'] ?: null]);
+		$error = $this->dpModelError($model, $actor);
+		if ($out['id'] <= 0) return ToolResult::error('Coupon update failed: ' . ($error ?: 'no id returned'));
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $error ?: null]);
 	}
 }

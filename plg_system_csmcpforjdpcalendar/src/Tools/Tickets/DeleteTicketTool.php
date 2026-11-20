@@ -43,13 +43,15 @@ final class DeleteTicketTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireTicket($actor, (int) ($arguments['id'] ?? 0), 'dpcalendar.admin.book', 'core.delete');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$model = $this->getModel('com_dpcalendar', 'Ticket');
 		$pks = [$id];
-		if (!$model->delete($pks)) {
-			$err = method_exists($model, 'getError') ? (string) $model->getError() : '';
+		if (!$this->dpWithSiteRoutes(function () use ($model, &$pks) { return $model->delete($pks); })) {
+			$err = $this->dpModelError($model, $actor);
 			return ToolResult::error('Ticket delete failed: ' . ($err ?: 'unknown error'));
 		}
 		return ToolResult::json(['ok' => true, 'deleted_ticket_id' => $id]);

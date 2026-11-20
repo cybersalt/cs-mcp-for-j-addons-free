@@ -59,6 +59,8 @@ final class ListCalendarsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		if ($this->dpcalendarAdminBase() === null) {
 			return $this->notInstalledError();
 		}
@@ -78,10 +80,14 @@ final class ListCalendarsTool extends AbstractTool
 				$this->db->quoteName('c.access'),
 				$this->db->quoteName('c.language'),
 				'(SELECT COUNT(*) FROM ' . $this->db->quoteName($tE, 'e2')
-					. ' WHERE ' . $this->db->quoteName('e2.catid') . ' = CAST(' . $this->db->quoteName('c.id') . ' AS CHAR)) AS event_count',
+					. ' WHERE ' . $this->db->quoteName('e2.catid') . ' = CAST(' . $this->db->quoteName('c.id') . ' AS BINARY)) AS event_count',
 			])
 			->from($this->db->quoteName($tC, 'c'))
 			->where($this->db->quoteName('c.extension') . ' = ' . $this->db->quote('com_dpcalendar'));
+		// View levels, as com_categories applies them for anyone without core.admin.
+		if (!$this->dpSeesAllLevels($actor)) {
+			$q->where($this->db->quoteName('c.access') . ' IN (' . implode(',', $this->dpViewLevels($actor) ?: [0]) . ')');
+		}
 
 		if (array_key_exists('published', $arguments)) {
 			$q->where($this->db->quoteName('c.published') . ' = ' . (int) $arguments['published']);
@@ -90,8 +96,8 @@ final class ListCalendarsTool extends AbstractTool
 			$q->where($this->db->quoteName('c.parent_id') . ' = ' . (int) $arguments['parent_id']);
 		}
 		if (!empty($arguments['search'])) {
-			$s = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string) $arguments['search']) . '%';
-			$qs = $this->db->quote($s);
+			$s = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+			$qs = $this->db->quote($s, false);
 			$q->where('(' . $this->db->quoteName('c.title') . ' LIKE ' . $qs
 				. ' OR ' . $this->db->quoteName('c.alias') . ' LIKE ' . $qs . ')');
 		}

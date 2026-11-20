@@ -49,6 +49,8 @@ final class ListCouponsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$t = $this->db->getPrefix() . 'dpcalendar_coupons';
@@ -61,8 +63,8 @@ final class ListCouponsTool extends AbstractTool
 		if ($state !== null) $q->where($this->db->quoteName('state') . ' = ' . $state);
 		if (!empty($arguments['type'])) $q->where($this->db->quoteName('type') . ' = ' . $this->db->quote((string) $arguments['type']));
 		if (!empty($arguments['search'])) {
-			$s = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string) $arguments['search']) . '%';
-			$qs = $this->db->quote($s);
+			$s = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+			$qs = $this->db->quote($s, false);
 			$q->where('(' . $this->db->quoteName('title') . ' LIKE ' . $qs . ' OR ' . $this->db->quoteName('code') . ' LIKE ' . $qs . ')');
 		}
 

@@ -41,6 +41,7 @@ final class UpdateEventTool extends AbstractTool
 			'type' => 'object',
 			'required' => ['id'],
 			'properties' => [
+				'force_checked_out' => $this->dpForceCheckedOutSchema(),
 				'id'             => ['type' => 'integer'],
 				'title'          => ['type' => 'string'],
 				'alias'          => ['type' => 'string'],
@@ -70,8 +71,31 @@ final class UpdateEventTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireEvent($actor, (int) ($arguments['id'] ?? 0), 'core.edit');
+
+		// Moving an event to another calendar needs Create there, as in DPCalendar's own form.
+		if (array_key_exists('catid', $arguments)) {
+			$this->dpRequireAccess($actor, 'core.create', $this->dpCalendarAsset($arguments['catid']));
+		}
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
+
+		// State and publish dates need Edit State on the event's calendar (and on the new one when it moves).
+		$catid = $this->db->setQuery(
+			$this->db->getQuery(true)
+				->select($this->db->quoteName('catid'))
+				->from($this->db->quoteName($this->db->getPrefix() . 'dpcalendar_events'))
+				->where($this->db->quoteName('id') . ' = ' . $id)
+		)->loadResult();
+		$this->dpRequireEditStateFor($actor, $arguments, $this->dpCalendarAsset($catid));
+		if (array_key_exists('catid', $arguments)) {
+			$this->dpRequireEditStateFor($actor, $arguments, $this->dpCalendarAsset($arguments['catid']));
+		}
+
+		if ($refused = $this->dpRefuseCheckedOut('dpcalendar_events', $id, $actor, $arguments)) {
+			return $refused;
+		}
 
 		$data = ['id' => $id];
 		foreach (['title', 'alias', 'description', 'color', 'url', 'language', 'rrule', 'publish_up', 'publish_down', 'start_date', 'end_date'] as $k) {
@@ -85,11 +109,15 @@ final class UpdateEventTool extends AbstractTool
 			return ToolResult::error('Nothing to update — supply at least one field besides id.');
 		}
 
+		$data = $this->dpClean($data);
+		if ($data instanceof ToolResult) return $data;
+
 		$model = $this->getModel('com_dpcalendar', 'Event');
 		$out = $this->saveAdminModel($model, $data);
+		$error = $this->dpModelError($model, $actor);
 		if ($out['id'] <= 0) {
-			return ToolResult::error('Event update failed: ' . ($out['error'] ?: 'no id returned'));
+			return ToolResult::error('Event update failed: ' . ($error ?: 'no id returned'));
 		}
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $out['error'] ?: null]);
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $error ?: null]);
 	}
 }

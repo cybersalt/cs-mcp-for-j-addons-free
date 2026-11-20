@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjdpcalendar\Tools\Events;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Cybersalt\Plugin\System\Csmcpforjdpcalendar\Tools\DPCalendarBootTrait;
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\User\User;
 
 /**
@@ -55,6 +56,11 @@ final class DuplicateEventTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		// Copying an event means reading all of it: Edit (or Edit Own) on its calendar, as opening it in
+		// DPCalendar's editor needs, plus Create there for the copy.
+		$this->dpRequireEvent($actor, (int) ($arguments['id'] ?? 0), 'core.edit');
+		$this->dpRequireEvent($actor, (int) ($arguments['id'] ?? 0), 'core.create');
+
 		$srcId = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
@@ -65,13 +71,24 @@ final class DuplicateEventTool extends AbstractTool
 				->where($this->db->quoteName('id') . ' = ' . $srcId)
 		)->loadAssoc();
 		if (!$src) return ToolResult::error('Source event ' . $srcId . ' not found.');
+		if (!$this->dpSeesAllLevels($actor) && !in_array((int) $src['access'], $this->dpViewLevels($actor), true)) {
+			return ToolResult::error('Source event ' . $srcId . ' not found.');
+		}
 
 		$data = $src;
 		unset($data['id'], $data['uid'], $data['alias'], $data['created'], $data['modified'],
 			$data['checked_out'], $data['checked_out_time'], $data['hits'], $data['capacity_used'],
-			$data['original_id'], $data['recurrence_id']);
+			$data['original_id'], $data['recurrence_id'], $data['xreference']);
+		// The copy gets no online meeting of its own: the Zoom plugin keeps the meeting id and passwords in params.
+		$params = json_decode((string) ($data['params'] ?? ''), true);
+		if (is_array($params)) {
+			foreach (array_keys($params) as $k) {
+				if (str_starts_with((string) $k, 'zoom_') || str_starts_with((string) $k, 'jitsi_')) unset($params[$k]);
+			}
+			$data['params'] = json_encode($params);
+		}
 		$data['id']         = 0;
-		$data['title']      = (string) ($arguments['title'] ?? ((string) $src['title'] . ' (Copy)'));
+		$data['title']      = (string) ComponentHelper::filterText((string) ($arguments['title'] ?? ((string) $src['title'] . ' (Copy)')));
 		$data['state']      = 0; // unpublished by default
 		$data['created_by'] = (int) $actor->id ?: (int) ($src['created_by'] ?? 0);
 		if (!empty($arguments['start_date'])) $data['start_date'] = (string) $arguments['start_date'];
@@ -82,15 +99,16 @@ final class DuplicateEventTool extends AbstractTool
 
 		$model = $this->getModel('com_dpcalendar', 'Event');
 		$out = $this->saveAdminModel($model, $data);
+		$error = $this->dpModelError($model, $actor);
 		if ($out['id'] <= 0) {
-			return ToolResult::error('Duplicate failed: ' . ($out['error'] ?: 'no id returned'));
+			return ToolResult::error('Duplicate failed: ' . ($error ?: 'no id returned'));
 		}
 		return ToolResult::json([
 			'ok' => true,
 			'new_id' => $out['id'],
 			'source_id' => $srcId,
 			'new_title' => $data['title'],
-			'save_warnings' => $out['error'] ?: null,
+			'save_warnings' => $error ?: null,
 		]);
 	}
 }

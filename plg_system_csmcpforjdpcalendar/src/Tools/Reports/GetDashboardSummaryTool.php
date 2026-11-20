@@ -47,6 +47,8 @@ final class GetDashboardSummaryTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$p = $this->db->getPrefix();

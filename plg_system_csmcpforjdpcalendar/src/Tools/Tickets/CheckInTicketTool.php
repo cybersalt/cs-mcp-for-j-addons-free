@@ -29,9 +29,9 @@ final class CheckInTicketTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Check in one DPCalendar ticket (sets state=3, "checked_in"). Required: '
-			. 'id (ticket id). Uses TicketModel::save so DPCalendar\'s state-transition '
-			. 'plugins fire.';
+		return 'Check in one DPCalendar ticket (sets state 9, "Checked in", the state DPCalendar\'s own '
+			. 'check-in writes). Required: id (ticket id). Uses TicketModel::save, which keeps the seat '
+			. 'counted as taken and fires DPCalendar\'s state-transition plugins.';
 	}
 
 	public function getInputSchema(): array
@@ -45,16 +45,29 @@ final class CheckInTicketTool extends AbstractTool
 
 	public function getRequiredPermission(): string { return 'write'; }
 
+	/** A write despite the check_ prefix, which AbstractTool would otherwise mark read-only. */
+	public function getMcpAnnotations(): array
+	{
+		return [
+			'readOnlyHint'    => false,
+			'destructiveHint' => false,
+			'idempotentHint'  => true,
+			'openWorldHint'   => false,
+		];
+	}
+
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireTicket($actor, (int) ($arguments['id'] ?? 0), 'dpcalendar.admin.book');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$model = $this->getModel('com_dpcalendar', 'Ticket');
-		$out = $this->saveAdminModel($model, ['id' => $id, 'state' => 3]);
+		$out = $this->dpWithSiteRoutes(fn () => $this->saveAdminModel($model, ['id' => $id, 'state' => 9]));
 		if ($out['id'] <= 0) {
-			return ToolResult::error('Check-in failed: ' . ($out['error'] ?: 'no id returned'));
+			return ToolResult::error('Check-in failed: ' . ($this->dpModelError($model, $actor) ?: 'no id returned'));
 		}
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'state' => 3, 'state_label' => 'checked_in']);
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'state' => 9, 'state_label' => 'checked_in']);
 	}
 }

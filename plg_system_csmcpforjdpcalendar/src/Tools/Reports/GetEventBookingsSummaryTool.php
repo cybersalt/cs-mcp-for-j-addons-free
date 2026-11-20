@@ -53,6 +53,8 @@ final class GetEventBookingsSummaryTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'dpcalendar.admin.book');
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$p  = $this->db->getPrefix();
@@ -131,6 +133,10 @@ final class GetEventBookingsSummaryTool extends AbstractTool
 			->group($this->db->quoteName('e.id'))
 			->having('COUNT(' . $this->db->quoteName('t.id') . ') > 0')
 			->order('ticket_count DESC');
+		// View levels, as DPCalendar's admin event list applies them.
+		if (!$this->dpSeesAllLevels($actor)) {
+			$q->where($this->db->quoteName('e.access') . ' IN (' . implode(',', $this->dpViewLevels($actor) ?: [0]) . ')');
+		}
 		if (!empty($arguments['date_from'])) {
 			$q->where($this->db->quoteName('e.start_date') . ' >= ' . $this->db->quote((string) $arguments['date_from']));
 		}

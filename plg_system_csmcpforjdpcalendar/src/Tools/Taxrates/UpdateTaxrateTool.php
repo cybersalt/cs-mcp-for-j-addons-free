@@ -34,6 +34,7 @@ final class UpdateTaxrateTool extends AbstractTool
 		return [
 			'type' => 'object', 'required' => ['id'],
 			'properties' => [
+				'force_checked_out' => $this->dpForceCheckedOutSchema(),
 				'id' => ['type' => 'integer'],
 				'title' => ['type' => 'string'],
 				'rate' => ['type' => 'number'],
@@ -51,8 +52,12 @@ final class UpdateTaxrateTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'core.edit');
+		$this->dpRequireEditStateFor($actor, $arguments, 'com_dpcalendar');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
+		if ($refused = $this->dpRefuseCheckedOut('dpcalendar_taxrates', $id, $actor, $arguments)) return $refused;
 
 		$data = ['id' => $id];
 		if (array_key_exists('title', $arguments)) $data['title'] = (string) $arguments['title'];
@@ -62,9 +67,13 @@ final class UpdateTaxrateTool extends AbstractTool
 		if (isset($arguments['countries']) && is_array($arguments['countries'])) $data['countries'] = array_map('intval', $arguments['countries']);
 		if (count($data) === 1) return ToolResult::error('Nothing to update.');
 
+		$data = $this->dpClean($data, []);
+		if ($data instanceof ToolResult) return $data;
+
 		$model = $this->getModel('com_dpcalendar', 'Taxrate');
 		$out = $this->saveAdminModel($model, $data);
-		if ($out['id'] <= 0) return ToolResult::error('Tax rate update failed: ' . ($out['error'] ?: 'no id returned'));
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $out['error'] ?: null]);
+		$error = $this->dpModelError($model, $actor);
+		if ($out['id'] <= 0) return ToolResult::error('Tax rate update failed: ' . ($error ?: 'no id returned'));
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $error ?: null]);
 	}
 }

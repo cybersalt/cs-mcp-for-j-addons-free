@@ -54,6 +54,9 @@ final class UpdateExtcalendarTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'core.edit');
+		$this->dpRequireEditStateFor($actor, $arguments, 'com_dpcalendar');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
@@ -64,12 +67,25 @@ final class UpdateExtcalendarTool extends AbstractTool
 		foreach (['color_force', 'state', 'access'] as $k) {
 			if (array_key_exists($k, $arguments)) $data[$k] = (int) $arguments[$k];
 		}
-		if (isset($arguments['params']) && is_array($arguments['params'])) $data['params'] = $arguments['params'];
+		if (isset($arguments['params']) && is_array($arguments['params'])) {
+			// The settings sent are merged into the stored ones (read through DPCalendar's table, so the
+			// password is the real one, not its scrambled storage form), and any masked value
+			// get_dpcalendar_extcalendar handed out is put back to what is stored.
+			$stored = $this->dpExtcalendarParams($id);
+			if ($stored === null) return ToolResult::error('External calendar ' . $id . ' not found.');
+			$params = $this->dpRestoreMasked($arguments['params'], $stored);
+			if (is_string($params)) return ToolResult::error($params);
+			$data['params'] = array_replace_recursive($stored, $params);
+		}
 		if (count($data) === 1) return ToolResult::error('Nothing to update.');
+
+		$data = $this->dpClean($data);
+		if ($data instanceof ToolResult) return $data;
 
 		$model = $this->getModel('com_dpcalendar', 'Extcalendar');
 		$out = $this->saveAdminModel($model, $data);
-		if ($out['id'] <= 0) return ToolResult::error('External calendar update failed: ' . ($out['error'] ?: 'no id returned'));
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $out['error'] ?: null]);
+		$error = $this->dpModelError($model, $actor);
+		if ($out['id'] <= 0) return ToolResult::error('External calendar update failed: ' . ($error ?: 'no id returned'));
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $error ?: null]);
 	}
 }

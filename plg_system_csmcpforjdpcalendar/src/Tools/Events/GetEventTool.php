@@ -46,6 +46,8 @@ final class GetEventTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
@@ -67,11 +69,25 @@ final class GetEventTool extends AbstractTool
 					$this->db->quoteName('u.email', 'created_by_email'),
 				])
 				->from($this->db->quoteName($tE, 'e'))
-				->join('LEFT', $this->db->quoteName($tC, 'c') . ' ON CAST(' . $this->db->quoteName('c.id') . ' AS CHAR) = ' . $this->db->quoteName('e.catid'))
+				->join('LEFT', $this->db->quoteName($tC, 'c') . ' ON CAST(' . $this->db->quoteName('c.id') . ' AS BINARY) = ' . $this->db->quoteName('e.catid'))
 				->join('LEFT', $this->db->quoteName($tU, 'u') . ' ON ' . $this->db->quoteName('u.id') . ' = ' . $this->db->quoteName('e.created_by'))
 				->where($this->db->quoteName('e.id') . ' = ' . $id)
 		)->loadAssoc();
 		if (!$ev) return ToolResult::error('Event ' . $id . ' not found.');
+
+		// DPCalendar's admin list hides events outside the account's view levels, and shows "Busy"
+		// instead of the title when the content's level is not one of them.
+		if (!$this->dpSeesAllLevels($actor)) {
+			$levels = $this->dpViewLevels($actor);
+			if (!in_array((int) $ev['access'], $levels, true)) return ToolResult::error('Event ' . $id . ' not found.');
+			if (!in_array((int) $ev['access_content'], $levels, true)) {
+				$ev['title'] = 'Busy';
+				$ev['description'] = '';
+				$ev['content_hidden'] = 'The account this AI app acts for does not have the view level for this event\'s content.';
+			}
+		}
+		// Online-meeting plugins (Zoom) keep meeting passwords in params.
+		$ev['params'] = $this->dpMaskSecrets($ev['params'] ?? '');
 
 		foreach (['id', 'original_id', 'show_end_time', 'all_day', 'hits', 'capacity', 'capacity_used', 'max_tickets',
 			'booking_waiting_list', 'booking_series', 'state', 'checked_out', 'access', 'access_content',

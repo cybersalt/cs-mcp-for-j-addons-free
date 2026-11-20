@@ -34,6 +34,7 @@ final class UpdateLocationTool extends AbstractTool
 		return [
 			'type' => 'object', 'required' => ['id'],
 			'properties' => [
+				'force_checked_out' => $this->dpForceCheckedOutSchema(),
 				'id' => ['type' => 'integer'],
 				'title' => ['type' => 'string'],
 				'alias' => ['type' => 'string'],
@@ -59,8 +60,12 @@ final class UpdateLocationTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'core.edit', 'com_dpcalendar', $this->dpLocationOwner((int) ($arguments['id'] ?? 0)));
+		$this->dpRequireEditStateFor($actor, $arguments, 'com_dpcalendar');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
+		if ($refused = $this->dpRefuseCheckedOut('dpcalendar_locations', $id, $actor, $arguments)) return $refused;
 
 		$data = ['id' => $id];
 		foreach (['title', 'alias', 'province', 'city', 'zip', 'street', 'number', 'url', 'description', 'color', 'language'] as $k) {
@@ -70,9 +75,13 @@ final class UpdateLocationTool extends AbstractTool
 		foreach (['latitude', 'longitude'] as $k) if (array_key_exists($k, $arguments)) $data[$k] = (float) $arguments[$k];
 		if (count($data) === 1) return ToolResult::error('Nothing to update — supply at least one field besides id.');
 
+		$data = $this->dpClean($data, ['title', 'description']);
+		if ($data instanceof ToolResult) return $data;
+
 		$model = $this->getModel('com_dpcalendar', 'Location');
 		$out = $this->saveAdminModel($model, $data);
-		if ($out['id'] <= 0) return ToolResult::error('Location update failed: ' . ($out['error'] ?: 'no id returned'));
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $out['error'] ?: null]);
+		$error = $this->dpModelError($model, $actor);
+		if ($out['id'] <= 0) return ToolResult::error('Location update failed: ' . ($error ?: 'no id returned'));
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'fields_updated' => array_keys($data), 'save_warnings' => $error ?: null]);
 	}
 }

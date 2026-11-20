@@ -51,6 +51,8 @@ final class SetEventFeaturedTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireEvent($actor, (int) ($arguments['id'] ?? 0), 'core.edit.state');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		$featured = (int) ($arguments['featured'] ?? -1);
 		if (!in_array($featured, [0, 1], true)) {
@@ -72,7 +74,7 @@ final class SetEventFeaturedTool extends AbstractTool
 
 		$pks = [$id];
 		if (!$model->featured($pks, $featured)) {
-			$err = method_exists($model, 'getError') ? (string) $model->getError() : '';
+			$err = $this->dpModelError($model, $actor);
 			return ToolResult::error('featured toggle failed: ' . ($err ?: 'unknown error'));
 		}
 		return ToolResult::json(['ok' => true, 'id' => $id, 'featured' => $featured]);

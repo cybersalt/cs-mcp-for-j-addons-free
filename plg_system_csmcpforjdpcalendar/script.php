@@ -63,7 +63,7 @@ class PlgSystemCsmcpforjdpcalendarInstallerScript implements InstallerScriptInte
 		}
 
 		Factory::getApplication()->enqueueMessage(
-			'MCP add-on for DPCalendar installed and active. ~43 new tools exposed to your '
+			'MCP add-on for DPCalendar installed and active. 43 new tools exposed to your '
 			. 'connected MCP clients, covering the full DPCalendar surface: calendars, events, '
 			. 'bookings, tickets, locations, coupons, external calendars, tax rates, countries, '
 			. 'plus dashboard + booking + revenue reports. Writes go through DPCalendar\'s own '

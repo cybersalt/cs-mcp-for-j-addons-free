@@ -47,13 +47,16 @@ final class DeleteBookingTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'dpcalendar.admin.book');
+		$this->dpRequireAccess($actor, 'core.delete');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$model = $this->getModel('com_dpcalendar', 'Booking');
 		$pks = [$id];
-		if (!$model->delete($pks)) {
-			$err = method_exists($model, 'getError') ? (string) $model->getError() : '';
+		if (!$this->dpWithSiteRoutes(function () use ($model, &$pks) { return $model->delete($pks); })) {
+			$err = $this->dpModelError($model, $actor);
 			return ToolResult::error('Booking delete failed: ' . ($err ?: 'unknown error'));
 		}
 		return ToolResult::json(['ok' => true, 'deleted_booking_id' => $id]);

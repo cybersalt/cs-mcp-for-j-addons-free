@@ -52,6 +52,8 @@ final class GetRevenueSummaryTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'dpcalendar.admin.book');
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$t = $this->db->getPrefix() . 'dpcalendar_bookings';

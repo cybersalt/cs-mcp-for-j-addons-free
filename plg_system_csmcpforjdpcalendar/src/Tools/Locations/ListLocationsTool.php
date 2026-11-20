@@ -50,6 +50,8 @@ final class ListLocationsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$t = $this->db->getPrefix() . 'dpcalendar_locations';
@@ -63,8 +65,8 @@ final class ListLocationsTool extends AbstractTool
 		if ($state !== null) $q->where($this->db->quoteName('state') . ' = ' . $state);
 		if (array_key_exists('country', $arguments)) $q->where($this->db->quoteName('country') . ' = ' . (int) $arguments['country']);
 		if (!empty($arguments['search'])) {
-			$s = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string) $arguments['search']) . '%';
-			$qs = $this->db->quote($s);
+			$s = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+			$qs = $this->db->quote($s, false);
 			$q->where('(' . $this->db->quoteName('title') . ' LIKE ' . $qs
 				. ' OR ' . $this->db->quoteName('city') . ' LIKE ' . $qs
 				. ' OR ' . $this->db->quoteName('street') . ' LIKE ' . $qs . ')');

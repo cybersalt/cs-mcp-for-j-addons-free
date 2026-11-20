@@ -55,6 +55,8 @@ final class CreateCouponTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'core.create');
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$data = [
@@ -69,9 +71,13 @@ final class CreateCouponTool extends AbstractTool
 		foreach (['area', 'limit'] as $k) if (array_key_exists($k, $arguments)) $data[$k] = (int) $arguments[$k];
 		foreach (['publish_up', 'publish_down'] as $k) if (array_key_exists($k, $arguments)) $data[$k] = (string) $arguments[$k];
 
+		$data = $this->dpClean($data, []);
+		if ($data instanceof ToolResult) return $data;
+
 		$model = $this->getModel('com_dpcalendar', 'Coupon');
 		$out = $this->saveAdminModel($model, $data);
-		if ($out['id'] <= 0) return ToolResult::error('Coupon create failed: ' . ($out['error'] ?: 'no id returned'));
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'save_warnings' => $out['error'] ?: null]);
+		$error = $this->dpModelError($model, $actor);
+		if ($out['id'] <= 0) return ToolResult::error('Coupon create failed: ' . ($error ?: 'no id returned'));
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'save_warnings' => $error ?: null]);
 	}
 }

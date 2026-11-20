@@ -49,6 +49,8 @@ final class ListTaxratesTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$t = $this->db->getPrefix() . 'dpcalendar_taxrates';
@@ -60,8 +62,8 @@ final class ListTaxratesTool extends AbstractTool
 		$state = $this->normaliseContentStateFilter($arguments['state'] ?? null);
 		if ($state !== null) $q->where($this->db->quoteName('state') . ' = ' . $state);
 		if (!empty($arguments['search'])) {
-			$s = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string) $arguments['search']) . '%';
-			$q->where($this->db->quoteName('title') . ' LIKE ' . $this->db->quote($s));
+			$s = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+			$q->where($this->db->quoteName('title') . ' LIKE ' . $this->db->quote($s, false));
 		}
 
 		$limit  = max(1, min(200, (int) ($arguments['limit'] ?? 50)));

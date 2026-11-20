@@ -42,6 +42,8 @@ final class GetCalendarTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
@@ -56,6 +58,10 @@ final class GetCalendarTool extends AbstractTool
 		)->loadAssoc();
 
 		if (!$cat) return ToolResult::error('DPCalendar calendar ' . $id . ' not found.');
+		// Calendars are Joomla categories: hidden outside the account's view levels, as in com_categories.
+		if (!$this->dpSeesAllLevels($actor) && !in_array((int) $cat['access'], $this->dpViewLevels($actor), true)) {
+			return ToolResult::error('DPCalendar calendar ' . $id . ' not found.');
+		}
 
 		foreach (['id', 'parent_id', 'level', 'published', 'access', 'lft', 'rgt', 'checked_out', 'metadata_id', 'note_id'] as $k) {
 			if (array_key_exists($k, $cat)) $cat[$k] = $cat[$k] === null ? null : (int) $cat[$k];

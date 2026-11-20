@@ -40,6 +40,8 @@ final class GetTicketTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireTicket($actor, (int) ($arguments['id'] ?? 0), 'dpcalendar.admin.book');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 

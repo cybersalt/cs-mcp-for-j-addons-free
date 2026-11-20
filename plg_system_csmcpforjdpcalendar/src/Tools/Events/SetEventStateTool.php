@@ -51,6 +51,8 @@ final class SetEventStateTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireEvent($actor, (int) ($arguments['id'] ?? 0), 'core.edit.state');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		$state = $this->normaliseContentStateFilter($arguments['state'] ?? null);
 		if ($state === null) return ToolResult::error('state must be one of 1/0/2/-2 or published/unpublished/archived/trashed.');
@@ -59,7 +61,7 @@ final class SetEventStateTool extends AbstractTool
 		$model = $this->getModel('com_dpcalendar', 'Event');
 		$pks = [$id];
 		if (!$model->publish($pks, $state)) {
-			$err = method_exists($model, 'getError') ? (string) $model->getError() : '';
+			$err = $this->dpModelError($model, $actor);
 			return ToolResult::error('publish failed: ' . ($err ?: 'unknown error'));
 		}
 

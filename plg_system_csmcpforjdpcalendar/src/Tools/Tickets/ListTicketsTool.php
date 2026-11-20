@@ -61,6 +61,8 @@ final class ListTicketsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'dpcalendar.admin.book');
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$p = $this->db->getPrefix();
@@ -92,8 +94,8 @@ final class ListTicketsTool extends AbstractTool
 			if (array_key_exists($k, $arguments)) $q->where($this->db->quoteName('t.' . $k) . ' = ' . (int) $arguments[$k]);
 		}
 		if (!empty($arguments['search'])) {
-			$s = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string) $arguments['search']) . '%';
-			$qs = $this->db->quote($s);
+			$s = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+			$qs = $this->db->quote($s, false);
 			$q->where('(' . $this->db->quoteName('t.uid') . ' LIKE ' . $qs
 				. ' OR ' . $this->db->quoteName('t.email') . ' LIKE ' . $qs
 				. ' OR ' . $this->db->quoteName('t.first_name') . ' LIKE ' . $qs

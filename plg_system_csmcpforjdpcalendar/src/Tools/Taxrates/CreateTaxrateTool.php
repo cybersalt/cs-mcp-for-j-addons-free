@@ -52,13 +52,16 @@ final class CreateTaxrateTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'core.create');
+		$this->dpRequireEditStateFor($actor, $arguments, 'com_dpcalendar');
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$data = [
 			'id' => 0,
 			'title' => $this->requireString($arguments, 'title'),
 			'rate' => (float) ($arguments['rate'] ?? 0),
-			'state' => (int) ($arguments['state'] ?? 1),
+			'state' => (int) ($arguments['state'] ?? ($actor->authorise('core.edit.state', 'com_dpcalendar') ? 1 : 0)),
 			'inclusive' => (int) ($arguments['inclusive'] ?? 0),
 		];
 		foreach (['publish_up', 'publish_down'] as $k) if (array_key_exists($k, $arguments)) $data[$k] = (string) $arguments[$k];
@@ -66,9 +69,13 @@ final class CreateTaxrateTool extends AbstractTool
 			$data['countries'] = array_map('intval', $arguments['countries']);
 		}
 
+		$data = $this->dpClean($data, []);
+		if ($data instanceof ToolResult) return $data;
+
 		$model = $this->getModel('com_dpcalendar', 'Taxrate');
 		$out = $this->saveAdminModel($model, $data);
-		if ($out['id'] <= 0) return ToolResult::error('Tax rate create failed: ' . ($out['error'] ?: 'no id returned'));
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'save_warnings' => $out['error'] ?: null]);
+		$error = $this->dpModelError($model, $actor);
+		if ($out['id'] <= 0) return ToolResult::error('Tax rate create failed: ' . ($error ?: 'no id returned'));
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'save_warnings' => $error ?: null]);
 	}
 }

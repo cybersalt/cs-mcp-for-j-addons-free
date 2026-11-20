@@ -56,13 +56,16 @@ final class CreateExtcalendarTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'core.create');
+		$this->dpRequireEditStateFor($actor, $arguments, 'com_dpcalendar');
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$data = [
 			'id' => 0,
 			'title' => $this->requireString($arguments, 'title'),
 			'plugin' => $this->requireString($arguments, 'plugin'),
-			'state' => (int) ($arguments['state'] ?? 1),
+			'state' => (int) ($arguments['state'] ?? ($actor->authorise('core.edit.state', 'com_dpcalendar') ? 1 : 0)),
 			'access' => (int) ($arguments['access'] ?? 1),
 			'color_force' => (int) ($arguments['color_force'] ?? 0),
 		];
@@ -73,9 +76,13 @@ final class CreateExtcalendarTool extends AbstractTool
 			$data['params'] = $arguments['params'];
 		}
 
+		$data = $this->dpClean($data);
+		if ($data instanceof ToolResult) return $data;
+
 		$model = $this->getModel('com_dpcalendar', 'Extcalendar');
 		$out = $this->saveAdminModel($model, $data);
-		if ($out['id'] <= 0) return ToolResult::error('External calendar create failed: ' . ($out['error'] ?: 'no id returned'));
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'save_warnings' => $out['error'] ?: null]);
+		$error = $this->dpModelError($model, $actor);
+		if ($out['id'] <= 0) return ToolResult::error('External calendar create failed: ' . ($error ?: 'no id returned'));
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'save_warnings' => $error ?: null]);
 	}
 }

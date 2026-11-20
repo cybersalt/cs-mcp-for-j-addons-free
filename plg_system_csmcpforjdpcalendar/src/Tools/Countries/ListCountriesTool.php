@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforjdpcalendar\Tools\Countries;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Cybersalt\Plugin\System\Csmcpforjdpcalendar\Tools\DPCalendarBootTrait;
+use Joomla\CMS\Factory;
 use Joomla\CMS\User\User;
 
 /**
@@ -52,29 +53,41 @@ final class ListCountriesTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
-		$t = $this->db->getPrefix() . 'dpcalendar_countries';
-		$q = $this->db->getQuery(true)
-			->select('*')
-			->from($this->db->quoteName($t))
-			->order($this->db->quoteName('name') . ' ASC');
+		// The table holds only the ISO code; DPCalendar takes the name from its language file
+		// (COM_DPCALENDAR_COUNTRY_<code>, DpcountriesField), so names are added and searched here.
+		$lang = Factory::getApplication()->getLanguage();
+		$lang->load('com_dpcalendar.countries', JPATH_ADMINISTRATOR . '/components/com_dpcalendar');
+
+		$t   = $this->db->getPrefix() . 'dpcalendar_countries';
+		$all = $this->db->setQuery(
+			$this->db->getQuery(true)
+				->select($this->db->quoteName(['id', 'short_code', 'state']))
+				->from($this->db->quoteName($t))
+		)->loadAssocList() ?: [];
+
+		foreach ($all as &$r) {
+			$r['id']    = (int) $r['id'];
+			$r['state'] = (int) $r['state'];
+			$key        = 'COM_DPCALENDAR_COUNTRY_' . $r['short_code'];
+			$r['name']  = $lang->hasKey($key) ? $lang->_($key) : $r['short_code'];
+		}
+		unset($r);
 
 		if (!empty($arguments['search'])) {
-			$s = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string) $arguments['search']) . '%';
-			$qs = $this->db->quote($s);
-			$q->where('(' . $this->db->quoteName('name') . ' LIKE ' . $qs
-				. ' OR ' . $this->db->quoteName('short_code') . ' LIKE ' . $qs . ')');
+			$needle = mb_strtolower(trim((string) $arguments['search']));
+			$all    = array_values(array_filter($all, fn ($r) => str_contains(mb_strtolower($r['name']), $needle)
+				|| mb_strtolower($r['short_code']) === $needle));
 		}
+
+		usort($all, fn ($a, $b) => strcmp($a['name'], $b['name']));
 
 		$limit  = max(1, min(500, (int) ($arguments['limit'] ?? 300)));
 		$offset = max(0, (int) ($arguments['offset'] ?? 0));
-		$this->db->setQuery($q, $offset, $limit);
-		$rows = $this->db->loadAssocList() ?: [];
-		foreach ($rows as &$r) {
-			if (isset($r['id'])) $r['id'] = (int) $r['id'];
-		}
-		unset($r);
+		$rows   = \array_slice($all, $offset, $limit);
 
 		$total = (int) $this->db->setQuery($this->db->getQuery(true)->select('COUNT(*)')->from($this->db->quoteName($t)))->loadResult();
 

@@ -70,6 +70,10 @@ final class CreateEventTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$asset = $this->dpCalendarAsset($arguments['catid'] ?? '');
+		$this->dpRequireAccess($actor, 'core.create', $asset);
+		$this->dpRequireEditStateFor($actor, $arguments, $asset);
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$data = [
@@ -78,7 +82,8 @@ final class CreateEventTool extends AbstractTool
 			'catid'      => (string) $this->requireString($arguments, 'catid'),
 			'start_date' => $this->requireString($arguments, 'start_date'),
 			'end_date'   => $this->requireString($arguments, 'end_date'),
-			'state'      => (int) ($arguments['state'] ?? 1),
+			// Without Edit State DPCalendar's form drops state, so a new event is saved unpublished.
+			'state'      => (int) ($arguments['state'] ?? ($actor->authorise('core.edit.state', $asset) ? 1 : 0)),
 			'access'     => (int) ($arguments['access'] ?? 1),
 			'access_content' => (int) ($arguments['access_content'] ?? 1),
 			'all_day'    => (int) ($arguments['all_day'] ?? 0),
@@ -91,11 +96,15 @@ final class CreateEventTool extends AbstractTool
 			if (array_key_exists($k, $arguments)) $data[$k] = (int) $arguments[$k];
 		}
 
+		$data = $this->dpClean($data);
+		if ($data instanceof ToolResult) return $data;
+
 		$model = $this->getModel('com_dpcalendar', 'Event');
 		$out = $this->saveAdminModel($model, $data);
+		$error = $this->dpModelError($model, $actor);
 		if ($out['id'] <= 0) {
-			return ToolResult::error('Event create failed: ' . ($out['error'] ?: 'no id returned'));
+			return ToolResult::error('Event create failed: ' . ($error ?: 'no id returned'));
 		}
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'save_warnings' => $out['error'] ?: null]);
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'state' => $data['state'], 'save_warnings' => $error ?: null]);
 	}
 }

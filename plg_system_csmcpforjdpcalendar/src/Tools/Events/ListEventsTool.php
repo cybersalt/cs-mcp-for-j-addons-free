@@ -66,6 +66,8 @@ final class ListEventsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$p  = $this->db->getPrefix();
@@ -93,10 +95,18 @@ final class ListEventsTool extends AbstractTool
 				$this->db->quoteName('e.created_by'),
 				$this->db->quoteName('u.name', 'created_by_name'),
 				$this->db->quoteName('e.created'),
+				$this->db->quoteName('e.access'),
+				$this->db->quoteName('e.access_content'),
 			])
 			->from($this->db->quoteName($tE, 'e'))
-			->join('LEFT', $this->db->quoteName($tC, 'c') . ' ON CAST(' . $this->db->quoteName('c.id') . ' AS CHAR) = ' . $this->db->quoteName('e.catid'))
+			->join('LEFT', $this->db->quoteName($tC, 'c') . ' ON CAST(' . $this->db->quoteName('c.id') . ' AS BINARY) = ' . $this->db->quoteName('e.catid'))
 			->join('LEFT', $this->db->quoteName($tU, 'u') . ' ON ' . $this->db->quoteName('u.id') . ' = ' . $this->db->quoteName('e.created_by'));
+
+		// View levels as DPCalendar's admin list applies them (EventsModel): hidden unless the account has the level.
+		$levels = $this->dpSeesAllLevels($actor) ? null : $this->dpViewLevels($actor);
+		if ($levels !== null) {
+			$q->where($this->db->quoteName('e.access') . ' IN (' . implode(',', $levels ?: [0]) . ')');
+		}
 
 		$state = $this->normaliseContentStateFilter($arguments['state'] ?? null);
 		if ($state !== null) {
@@ -109,8 +119,8 @@ final class ListEventsTool extends AbstractTool
 			$q->where($this->db->quoteName('e.featured') . ' = ' . (int) $arguments['featured']);
 		}
 		if (!empty($arguments['search'])) {
-			$s = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string) $arguments['search']) . '%';
-			$qs = $this->db->quote($s);
+			$s = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+			$qs = $this->db->quote($s, false);
 			$q->where('(' . $this->db->quoteName('e.title') . ' LIKE ' . $qs . ' OR ' . $this->db->quoteName('e.alias') . ' LIKE ' . $qs . ')');
 		}
 		if (!empty($arguments['date_from'])) {
@@ -144,6 +154,9 @@ final class ListEventsTool extends AbstractTool
 			}
 			$r['state_label'] = $this->contentStateLabel((int) $r['state']);
 			$r['is_recurring'] = !empty($r['rrule']);
+			if ($levels !== null && !in_array((int) $r['access_content'], $levels, true)) {
+				$r['title'] = 'Busy';
+			}
 		}
 		unset($r);
 

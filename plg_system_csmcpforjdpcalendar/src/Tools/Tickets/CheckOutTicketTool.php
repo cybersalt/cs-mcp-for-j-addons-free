@@ -29,7 +29,7 @@ final class CheckOutTicketTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Undo a check-in on one DPCalendar ticket (sets state back to 1, '
-			. '"confirmed"). Use when a check-in was applied by mistake. Required: id.';
+			. '"Active"). Use when a check-in was applied by mistake. Required: id.';
 	}
 
 	public function getInputSchema(): array
@@ -43,16 +43,29 @@ final class CheckOutTicketTool extends AbstractTool
 
 	public function getRequiredPermission(): string { return 'write'; }
 
+	/** A write despite the check_ prefix, which AbstractTool would otherwise mark read-only. */
+	public function getMcpAnnotations(): array
+	{
+		return [
+			'readOnlyHint'    => false,
+			'destructiveHint' => false,
+			'idempotentHint'  => true,
+			'openWorldHint'   => false,
+		];
+	}
+
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireTicket($actor, (int) ($arguments['id'] ?? 0), 'dpcalendar.admin.book');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$model = $this->getModel('com_dpcalendar', 'Ticket');
-		$out = $this->saveAdminModel($model, ['id' => $id, 'state' => 1]);
+		$out = $this->dpWithSiteRoutes(fn () => $this->saveAdminModel($model, ['id' => $id, 'state' => 1]));
 		if ($out['id'] <= 0) {
-			return ToolResult::error('Check-out failed: ' . ($out['error'] ?: 'no id returned'));
+			return ToolResult::error('Check-out failed: ' . ($this->dpModelError($model, $actor) ?: 'no id returned'));
 		}
-		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'state' => 1, 'state_label' => 'confirmed']);
+		return ToolResult::json(['ok' => true, 'id' => $out['id'], 'state' => 1, 'state_label' => 'active']);
 	}
 }

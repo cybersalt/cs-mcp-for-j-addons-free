@@ -34,8 +34,8 @@ final class DeleteEventTool extends AbstractTool
 	{
 		return 'HARD-DELETE one DPCalendar event via EventModel::delete. Cascades '
 			. 'through junction tables and tickets per DPCalendar\'s delete logic. '
-			. 'Required: id. For a recoverable delete, use set_dpcalendar_event_state '
-			. 'with state=-2 (trashed) instead.';
+			. 'Required: id. Like DPCalendar\'s own admin, it only deletes an event that is already in the '
+			. 'trash: trash it first with set_dpcalendar_event_state state=-2 (which is also the recoverable option).';
 	}
 
 	public function getInputSchema(): array
@@ -52,13 +52,16 @@ final class DeleteEventTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireEvent($actor, (int) ($arguments['id'] ?? 0), 'core.delete');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
+		if ($refused = $this->dpRequireTrashed('dpcalendar_events', $id, 'event')) return $refused;
 
 		$model = $this->getModel('com_dpcalendar', 'Event');
 		$pks = [$id];
 		if (!$model->delete($pks)) {
-			$err = method_exists($model, 'getError') ? (string) $model->getError() : '';
+			$err = $this->dpModelError($model, $actor);
 			return ToolResult::error('Event delete failed: ' . ($err ?: 'unknown error'));
 		}
 

@@ -63,6 +63,8 @@ final class ListBookingsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor, 'dpcalendar.admin.book');
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$p  = $this->db->getPrefix();
@@ -96,8 +98,8 @@ final class ListBookingsTool extends AbstractTool
 		}
 		if (!empty($arguments['payment_provider'])) $q->where($this->db->quoteName('b.payment_provider') . ' = ' . $this->db->quote((string) $arguments['payment_provider']));
 		if (!empty($arguments['search'])) {
-			$s = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string) $arguments['search']) . '%';
-			$qs = $this->db->quote($s);
+			$s = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+			$qs = $this->db->quote($s, false);
 			$q->where('(' . $this->db->quoteName('b.uid') . ' LIKE ' . $qs
 				. ' OR ' . $this->db->quoteName('b.email') . ' LIKE ' . $qs
 				. ' OR ' . $this->db->quoteName('b.first_name') . ' LIKE ' . $qs

@@ -30,11 +30,11 @@ final class UpdateBookingTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Update one DPCalendar booking via BookingModel::save. Required: id. '
-			. 'Any of: state (0=pending, 1=confirmed, 2=cancelled, 3=refunded, 4=denied, '
-			. '5=cancelled_by_user), first_name, name, email, telephone, country, '
-			. 'province, city, zip, street, number, transaction_id, invoice (0/1), '
-			. 'payment_provider. State transitions may trigger DPCalendar\'s '
-			. 'notification emails per the plugin\'s configuration.';
+			. 'Any of: state (DPCalendar\'s codes: 0 inactive, 1 active, 2 tickets reviewed, 3 confirmation, '
+			. '4 on hold, 5 invited, 6 cancelled, 7 refunded, 8 waiting, 10 partially paid; to cancel a '
+			. 'booking use 6), first_name, name, email, telephone, country, '
+			. 'province, city, zip, street, number, invoice (0/1), payment_provider. The coupon stays as it is. '
+			. 'State transitions may trigger DPCalendar\'s notification emails per the plugin\'s configuration.';
 	}
 
 	public function getInputSchema(): array
@@ -55,7 +55,6 @@ final class UpdateBookingTool extends AbstractTool
 				'zip'              => ['type' => 'string'],
 				'street'           => ['type' => 'string'],
 				'number'           => ['type' => 'string'],
-				'transaction_id'   => ['type' => 'string'],
 				'invoice'          => ['type' => 'integer', 'enum' => [0, 1]],
 				'payment_provider' => ['type' => 'string'],
 			],
@@ -67,12 +66,16 @@ final class UpdateBookingTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		// DPCalendar's admin save needs Edit, and Admin Booking for state and price fields.
+		$this->dpRequireAccess($actor, 'dpcalendar.admin.book');
+		$this->dpRequireAccess($actor, 'core.edit');
+
 		$id = $this->requirePositiveInt($arguments, 'id');
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$data = ['id' => $id];
 		foreach (['first_name', 'name', 'email', 'telephone', 'country', 'province',
-			'city', 'zip', 'street', 'number', 'transaction_id', 'payment_provider'] as $k) {
+			'city', 'zip', 'street', 'number', 'payment_provider'] as $k) {
 			if (array_key_exists($k, $arguments)) $data[$k] = (string) $arguments[$k];
 		}
 		foreach (['state', 'invoice'] as $k) {
@@ -80,15 +83,29 @@ final class UpdateBookingTool extends AbstractTool
 		}
 		if (count($data) === 1) return ToolResult::error('Nothing to update — supply at least one field besides id.');
 
+		$data = $this->dpClean($data, []);
+		if ($data instanceof ToolResult) return $data;
+
+		// DPCalendar clears the coupon when coupon_id is missing from a save (its admin form always
+		// posts it), so send the stored one back.
+		$stored = $this->db->setQuery(
+			$this->db->getQuery(true)->select($this->db->quoteName(['id', 'coupon_id']))
+				->from($this->db->quoteName($this->db->getPrefix() . 'dpcalendar_bookings'))
+				->where($this->db->quoteName('id') . ' = ' . $id)
+		)->loadAssoc();
+		if (!$stored) return ToolResult::error('Booking ' . $id . ' not found.');
+		$data['coupon_id'] = (int) ($stored['coupon_id'] ?? 0);
+
 		$model = $this->getModel('com_dpcalendar', 'Booking');
-		$out = $this->saveAdminModel($model, $data);
+		$out = $this->dpWithSiteRoutes(fn () => $this->saveAdminModel($model, $data));
+		$error = $this->dpModelError($model, $actor);
 		if ($out['id'] <= 0) {
-			return ToolResult::error('Booking update failed: ' . ($out['error'] ?: 'no id returned'));
+			return ToolResult::error('Booking update failed: ' . ($error ?: 'no id returned'));
 		}
 		return ToolResult::json([
 			'ok' => true, 'id' => $out['id'],
-			'fields_updated' => array_keys($data),
-			'save_warnings' => $out['error'] ?: null,
+			'fields_updated' => array_values(array_diff(array_keys($data), ['coupon_id'])),
+			'save_warnings' => $error ?: null,
 		]);
 	}
 }

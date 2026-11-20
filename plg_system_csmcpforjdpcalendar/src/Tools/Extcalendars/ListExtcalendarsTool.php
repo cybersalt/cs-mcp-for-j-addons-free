@@ -50,6 +50,8 @@ final class ListExtcalendarsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->dpRequireAccess($actor);
+
 		if ($this->dpcalendarAdminBase() === null) return $this->notInstalledError();
 
 		$t = $this->db->getPrefix() . 'dpcalendar_extcalendars';
@@ -61,10 +63,14 @@ final class ListExtcalendarsTool extends AbstractTool
 
 		$state = $this->normaliseContentStateFilter($arguments['state'] ?? null);
 		if ($state !== null) $q->where($this->db->quoteName('state') . ' = ' . $state);
+		// View levels, as DPCalendar's own list applies them (ExtcalendarsModel).
+		if (!$this->dpSeesAllLevels($actor)) {
+			$q->where($this->db->quoteName('access') . ' IN (' . implode(',', $this->dpViewLevels($actor) ?: [0]) . ')');
+		}
 		if (!empty($arguments['plugin'])) $q->where($this->db->quoteName('plugin') . ' = ' . $this->db->quote((string) $arguments['plugin']));
 		if (!empty($arguments['search'])) {
-			$s = '%' . str_replace(['%', '_'], ['\\%', '\\_'], (string) $arguments['search']) . '%';
-			$qs = $this->db->quote($s);
+			$s = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+			$qs = $this->db->quote($s, false);
 			$q->where('(' . $this->db->quoteName('title') . ' LIKE ' . $qs . ' OR ' . $this->db->quoteName('alias') . ' LIKE ' . $qs . ')');
 		}
 
