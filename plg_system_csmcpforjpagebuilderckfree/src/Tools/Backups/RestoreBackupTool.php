@@ -101,6 +101,7 @@ final class RestoreBackupTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'properties' => [
+				'force_checked_out' => $this->pbckForceCheckedOutSchema(),
 				'file' => [
 					'type'        => 'string',
 					'description' => 'Path relative to the backup directory, as returned by list_pagebuilderck_backups.',
@@ -121,8 +122,20 @@ final class RestoreBackupTool extends AbstractTool
 
 	public function getRequiredPermission(): string { return 'write'; }
 
+	/** Overwrites existing page content, so tell the AI app it is destructive. */
+	public function getMcpAnnotations(): array
+	{
+		return [
+			'readOnlyHint'    => false,
+			'destructiveHint' => true,
+			'idempotentHint'  => false,
+			'openWorldHint'   => false,
+		];
+	}
+
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, 'core.edit');
 		$base = $this->pbckAdminBase();
 
 		if ($base === null) {
@@ -166,6 +179,19 @@ final class RestoreBackupTool extends AbstractTool
 			], true);
 		}
 
+		// Page snapshots live in backup/<page id>_bak/. Saved elements and content types keep theirs in
+		// other subfolders (myelements/…), and restoring one of those would put that markup into a page.
+		$folder = basename(\dirname($resolved));
+
+		if (\dirname($resolved, 2) !== $root || preg_match('/^(\d+)_bak$/', $folder, $f) !== 1 || $f[1] !== $m[1]) {
+			return ToolResult::json([
+				'ok'    => false,
+				'error' => 'File "' . $requested . '" is not a page snapshot: page snapshots are in '
+					. 'backup/<page id>_bak/backup_<page id>_….pbck. Snapshots of saved elements or content '
+					. 'types cannot be restored into a page. Nothing was written.',
+			], true);
+		}
+
 		$raw = @file_get_contents($resolved);
 
 		if ($raw === false || $raw === '') {
@@ -204,7 +230,7 @@ final class RestoreBackupTool extends AbstractTool
 
 		$current = $this->db->setQuery(
 			$this->db->getQuery(true)
-				->select([$this->db->quoteName('id'), $this->db->quoteName('title'), $this->db->quoteName('htmlcode')])
+				->select([$this->db->quoteName('id'), $this->db->quoteName('title'), $this->db->quoteName('htmlcode'), $this->db->quoteName('checked_out')])
 				->from($this->db->quoteName($this->pbckTable('pages')))
 				->where($this->db->quoteName('id') . ' = ' . $pageId)
 		)->loadAssoc();
@@ -217,6 +243,10 @@ final class RestoreBackupTool extends AbstractTool
 					. 'a row from a snapshot — that would resurrect a page with a new id and no '
 					. 'menu-item, module or ACL association.',
 			], true);
+		}
+
+		if ($refused = $this->pbckRefuseCheckedOut($current, $actor, $arguments)) {
+			return $refused;
 		}
 
 		// The snapshot is already tokenised by getExportFile()
@@ -364,6 +394,18 @@ final class RestoreBackupTool extends AbstractTool
 	 */
 	private function resolveInsideRoot(string $root, string $requested): string|ToolResult
 	{
+		// Refuse traversal, absolute paths and NUL before touching the filesystem, so
+		// the answer never says whether some file outside the backup folder exists.
+		if (str_contains($requested, "\0") || str_contains($requested, '\\') || str_starts_with($requested, '/')
+			|| preg_match('#(^|/)\.\.(/|$)#', $requested) === 1 || preg_match('#^[A-Za-z]:#', $requested) === 1) {
+			return ToolResult::json([
+				'ok'    => false,
+				'error' => 'Refusing "' . $requested . '": give the snapshot path relative to '
+					. 'administrator/components/com_pagebuilderck/backup, with no "..", no leading "/" and no backslashes. '
+					. 'Use list_pagebuilderck_backups to get a valid one.',
+			], true);
+		}
+
 		$candidate = realpath($root . '/' . $requested);
 
 		if ($candidate === false || !is_file($candidate)) {
@@ -381,8 +423,8 @@ final class RestoreBackupTool extends AbstractTool
 		if (!str_starts_with($normalisedFile, $normalisedRoot . '/')) {
 			return ToolResult::json([
 				'ok'    => false,
-				'error' => 'Refusing "' . $requested . '": it resolves to ' . $normalisedFile . ', which '
-					. 'is outside the Page Builder CK backup directory. This tool will only read files '
+				'error' => 'Refusing "' . $requested . '": it resolves (through a symbolic link) to a file '
+					. 'outside the Page Builder CK backup directory. This tool will only read files '
 					. 'that are genuinely inside it — after symlinks and .. have been resolved.',
 			], true);
 		}

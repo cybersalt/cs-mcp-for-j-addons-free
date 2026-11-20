@@ -109,6 +109,7 @@ final class UpdateBlockTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'properties' => [
+				'force_checked_out' => $this->pbckForceCheckedOutSchema(),
 				'page_id'    => ['type' => 'integer', 'description' => 'Row id in #__pagebuilderck_pages.'],
 				'id'         => ['type' => 'integer', 'description' => 'Alias for page_id.'],
 				'block_id'   => ['type' => 'string', 'description' => 'The id attribute of the .cktype div. From get_pagebuilderck_page_outline.'],
@@ -124,6 +125,7 @@ final class UpdateBlockTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, 'core.edit');
 		if (($guard = $this->pbckContentGuard()) !== null) {
 			return $guard;
 		}
@@ -155,6 +157,10 @@ final class UpdateBlockTool extends AbstractTool
 
 		if ($row === null) {
 			return $this->pbckPageNotFoundError($pageId);
+		}
+
+		if ($refused = $this->pbckRefuseCheckedOut($row, $actor, $arguments)) {
+			return $refused;
 		}
 
 		$original = (string) $row['htmlcode'];

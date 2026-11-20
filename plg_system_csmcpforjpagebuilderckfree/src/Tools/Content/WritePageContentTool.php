@@ -77,6 +77,7 @@ final class WritePageContentTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'properties' => [
+				'force_checked_out' => $this->pbckForceCheckedOutSchema(),
 				'page_id'  => ['type' => 'integer', 'description' => 'Row id in #__pagebuilderck_pages.'],
 				'id'       => ['type' => 'integer', 'description' => 'Alias for page_id.'],
 				'htmlcode' => ['type' => 'string', 'description' => 'The complete new document. Use real site URLs; the |URIROOT| tokenisation is applied for you.'],
@@ -91,6 +92,7 @@ final class WritePageContentTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, 'core.edit');
 		if (($guard = $this->pbckContentGuard()) !== null) {
 			return $guard;
 		}
@@ -100,6 +102,10 @@ final class WritePageContentTool extends AbstractTool
 
 		if ($row === null) {
 			return $this->pbckPageNotFoundError($pageId);
+		}
+
+		if ($refused = $this->pbckRefuseCheckedOut($row, $actor, $arguments)) {
+			return $refused;
 		}
 
 		if (!\array_key_exists('htmlcode', $arguments) || !\is_string($arguments['htmlcode'])) {

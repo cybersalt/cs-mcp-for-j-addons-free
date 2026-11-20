@@ -116,6 +116,7 @@ final class CreatePageTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, 'core.create', 'core.edit');
 		if ($this->pbckAdminBase() === null) {
 			return $this->pbckNotInstalledError();
 		}
@@ -124,7 +125,11 @@ final class CreatePageTool extends AbstractTool
 			return $this->pbckMissingTableError('pages');
 		}
 
-		$title = $this->requireString($arguments, 'title');
+		$title = $this->pbckCleanTitle($this->requireString($arguments, 'title'));
+
+		if ($title === '') {
+			return ToolResult::json(['ok' => false, 'error' => 'title is empty once HTML tags are removed (Page Builder CK strips them). Nothing was created.'], true);
+		}
 
 		if (($refusal = $this->assertStorable($title, 'title', 255)) !== null) {
 			return $refusal;
@@ -151,6 +156,11 @@ final class CreatePageTool extends AbstractTool
 			return $refusal;
 		}
 
+		// A state other than the default needs Edit State, as set_pagebuilderck_page_state does.
+		if ($stateGiven && $state !== 1) {
+			$this->pbckRequire($actor, 'core.edit.state');
+		}
+
 		$categories = $this->joinIdList($arguments['categories'] ?? []);
 
 		if (($refusal = $this->assertStorable($categories, 'categories', 255)) !== null) {
@@ -161,6 +171,10 @@ final class CreatePageTool extends AbstractTool
 
 		if ($params instanceof ToolResult) {
 			return $params;
+		}
+
+		if (($bad = $this->pbckCheckParams($params)) !== null) {
+			return $bad;
 		}
 
 		// --- content ---------------------------------------------------------

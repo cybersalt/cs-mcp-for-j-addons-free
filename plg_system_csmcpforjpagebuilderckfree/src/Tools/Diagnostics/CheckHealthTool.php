@@ -123,6 +123,7 @@ final class CheckHealthTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor);
 		if ($this->pbckAdminBase() === null) {
 			return $this->pbckNotInstalledError();
 		}
@@ -132,7 +133,7 @@ final class CheckHealthTool extends AbstractTool
 		try {
 			$requested = $this->requestedChecks($arguments);
 		} catch (\InvalidArgumentException $e) {
-			return ToolResult::json(['ok' => false, 'error' => $e->getMessage()], true);
+			return ToolResult::json(['ok' => false, 'error' => $this->pbckSafeMessage($e)], true);
 		}
 
 		$contentChecks = ['unsafe_content', 'duplicate_ids', 'unrenderable_types', 'row_geometry', 'untokenised_root'];
@@ -142,7 +143,7 @@ final class CheckHealthTool extends AbstractTool
 			try {
 				$scan = $this->scanPages();
 			} catch (\Throwable $e) {
-				$scan = ['__error' => $e->getMessage()];
+				$scan = ['__error' => $this->pbckSafeMessage($e)];
 			}
 		}
 
@@ -258,7 +259,7 @@ final class CheckHealthTool extends AbstractTool
 		try {
 			return ['check' => $name] + $callback();
 		} catch (\Throwable $e) {
-			return ['check' => $name, 'status' => 'skipped', 'reason' => $e->getMessage()];
+			return ['check' => $name, 'status' => 'skipped', 'reason' => $this->pbckSafeMessage($e)];
 		}
 	}
 

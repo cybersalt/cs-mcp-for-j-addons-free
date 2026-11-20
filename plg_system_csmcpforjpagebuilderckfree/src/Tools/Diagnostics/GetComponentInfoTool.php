@@ -80,6 +80,7 @@ final class GetComponentInfoTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor);
 		$base = $this->pbckAdminBase();
 
 		if ($base === null) {
@@ -260,7 +261,7 @@ final class GetComponentInfoTool extends AbstractTool
 					. 'Run check_pagebuilderck_health for rows approaching that ceiling.';
 			}
 		} catch (\Throwable $e) {
-			$report['error'] = 'The table exists but could not be queried: ' . $e->getMessage();
+			$report['error'] = 'The table exists but could not be queried: ' . $this->pbckSafeMessage($e);
 		}
 
 		return $report;

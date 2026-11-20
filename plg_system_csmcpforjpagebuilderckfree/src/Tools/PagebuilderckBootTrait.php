@@ -14,7 +14,9 @@ namespace Cybersalt\Plugin\System\Csmcpforjpagebuilderckfree\Tools;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Filter\InputFilter;
 use Joomla\CMS\Uri\Uri;
+use Joomla\CMS\User\User;
 
 /**
  * Shared orientation for the Page Builder CK tools: is it installed, which
@@ -75,6 +77,61 @@ trait PagebuilderckBootTrait
 	public function getCategory(): string
 	{
 		return 'pagebuilderck';
+	}
+
+	// -----------------------------------------------------------------------
+	// Permissions and safe messages
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Page Builder CK's own permissions, on top of MCP for J's Use / Write.
+	 *
+	 * Page Builder CK opens only with "Access Administration Interface"
+	 * (core.manage, com_pagebuilderck/pagebuilderck.php), and every save, copy and
+	 * import in its controllers calls CKFof::checkSecurity(), which is "Edit"
+	 * (core.edit) on com_pagebuilderck. So every tool needs core.manage, every
+	 * write also needs core.edit, and writes that add, delete or publish also name
+	 * the standard Joomla action (core.create / core.delete / core.edit.state).
+	 * A Super User passes everything.
+	 *
+	 * @throws \RuntimeException
+	 */
+	protected function pbckRequire(User $actor, string ...$actions): void
+	{
+		$labels = [
+			'core.manage'     => 'Access Administration Interface',
+			'core.create'     => 'Create',
+			'core.edit'       => 'Edit',
+			'core.edit.state' => 'Edit State',
+			'core.delete'     => 'Delete',
+			'core.admin'      => 'Configure ACL & Options',
+		];
+
+		foreach (array_unique(['core.manage', ...$actions]) as $action) {
+			if (!$actor->authorise($action, 'com_pagebuilderck')) {
+				throw new \RuntimeException('You need \'' . ($labels[$action] ?? $action) . '\' permission (' . $action
+					. ') on Page Builder CK to do this. A Super User can grant it in Page Builder CK\'s Options, on the '
+					. 'Permissions tab (or in System → Global Configuration → Permissions).');
+			}
+		}
+	}
+
+	/** A server path as "[site root]/…", so no reply hands the AI app the absolute path. */
+	protected function pbckSitePath(?string $path): ?string
+	{
+		return $path === null ? null : str_replace(str_replace('\\', '/', JPATH_ROOT), '[site root]', str_replace('\\', '/', $path));
+	}
+
+	/** An exception message without SQL or server paths, safe to hand to the AI app. */
+	protected function pbckSafeMessage(\Throwable $e): string
+	{
+		if ($e instanceof \Joomla\Database\Exception\ExecutionFailureException
+			|| $e instanceof \Joomla\Database\Exception\ConnectionFailureException
+			|| $e instanceof \PDOException || $e instanceof \mysqli_sql_exception) {
+			return 'a database error occurred (error ' . (int) $e->getCode() . ')';
+		}
+
+		return (string) $this->pbckSitePath($e->getMessage());
 	}
 
 	/** Absolute path to the admin component, or null when not installed. */
@@ -499,7 +556,8 @@ trait PagebuilderckBootTrait
 		}
 
 		if (is_numeric($raw)) {
-			return (int) $raw;
+			// Only the four states Page Builder CK's screens can show and undo.
+			return \in_array((int) $raw, [-2, 0, 1, 2], true) && (string) (int) $raw === trim((string) $raw) ? (int) $raw : null;
 		}
 
 		return match (strtolower(trim((string) $raw))) {
@@ -523,6 +581,67 @@ trait PagebuilderckBootTrait
 		$raw = trim((string) ($row['checked_out'] ?? ''));
 
 		return $raw === '' || $raw === '0' ? null : (int) $raw;
+	}
+
+	/**
+	 * A page title as Page Builder CK's own save stores it: its controller reads
+	 * the title with the "string" input filter, which strips tags, and the title
+	 * is printed unescaped in its Pages list and the front-end heading.
+	 */
+	protected function pbckCleanTitle(string $title): string
+	{
+		return trim((string) InputFilter::getInstance()->clean($title, 'string'));
+	}
+
+	/**
+	 * Refuse page options Page Builder CK would print as markup: `titletag` becomes
+	 * the heading element on the front end (`<{titletag} class="pagebuilderck_title">`).
+	 */
+	protected function pbckCheckParams(string $json): ?ToolResult
+	{
+		$params = $json === '' ? [] : json_decode($json, true);
+		$tag    = \is_array($params) ? ($params['titletag'] ?? null) : null;
+
+		if ($tag === null || $tag === '' || \in_array($tag, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'p', 'span'], true)) {
+			return null;
+		}
+
+		return ToolResult::json([
+			'ok'    => false,
+			'error' => 'params.titletag must be one of h1, h2, h3, h4, h5, h6, div, p or span: Page Builder CK prints it '
+				. 'as the page heading\'s HTML element. Nothing was written.',
+		], true);
+	}
+
+	/** Input-schema entry for the check-out override shared by the content writes. */
+	protected function pbckForceCheckedOutSchema(): array
+	{
+		return ['type' => 'boolean', 'description' => 'Write even when the page is checked out by another user. Default false.'];
+	}
+
+	/**
+	 * Refuse a write to a page someone else has checked out, as Page Builder CK's
+	 * own screens do (Save is hidden and the front-end editor won't open it).
+	 * Null when the write may go ahead; a dry run writes nothing, so it passes.
+	 */
+	protected function pbckRefuseCheckedOut(array $row, User $actor, array $arguments): ?ToolResult
+	{
+		$checkedOut = $this->pbckCheckedOutBy($row);
+
+		if ($checkedOut === null || $checkedOut === (int) $actor->id || !empty($arguments['force_checked_out'])
+			|| !empty($arguments['dry_run'])) {
+			return null;
+		}
+
+		return ToolResult::json([
+			'ok'             => false,
+			'error'          => 'Refusing to change page ' . (int) ($row['id'] ?? 0) . ': it is checked out by user '
+				. $checkedOut . '. That user may have it open in Page Builder CK, and their next Save would '
+				. 'overwrite anything written now. Nothing was written.',
+			'checked_out_by' => $checkedOut,
+			'resolution'     => 'Wait for them to save or cancel, or pass force_checked_out: true to write anyway. '
+				. 'Page Builder CK has no global check-in, so a lock left by an abandoned session never clears on its own.',
+		], true);
 	}
 
 	protected function pbckPreview(?string $value, int $max = 400): array

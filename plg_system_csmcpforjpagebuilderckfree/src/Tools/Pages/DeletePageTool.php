@@ -85,6 +85,7 @@ final class DeletePageTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, empty($arguments['permanent']) ? 'core.edit.state' : 'core.delete');
 		if ($this->pbckAdminBase() === null) {
 			return $this->pbckNotInstalledError();
 		}

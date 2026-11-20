@@ -85,6 +85,7 @@ final class GetPageTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, 'core.edit');
 		if ($this->pbckAdminBase() === null) {
 			return $this->pbckNotInstalledError();
 		}

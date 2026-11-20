@@ -70,6 +70,7 @@ final class SetRowColumnsTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'properties' => [
+				'force_checked_out' => $this->pbckForceCheckedOutSchema(),
 				'page_id' => ['type' => 'integer', 'description' => 'Row id in #__pagebuilderck_pages.'],
 				'row_id'  => ['type' => 'string', 'description' => 'The row\'s id, with or without the row_ prefix.'],
 				'columns' => ['type' => 'integer', 'description' => 'Target column count, 1 to 12. Omit to keep the current count.'],
@@ -90,8 +91,20 @@ final class SetRowColumnsTool extends AbstractTool
 
 	public function getRequiredPermission(): string { return 'write'; }
 
+	/** Overwrites existing page content, so tell the AI app it is destructive. */
+	public function getMcpAnnotations(): array
+	{
+		return [
+			'readOnlyHint'    => false,
+			'destructiveHint' => true,
+			'idempotentHint'  => false,
+			'openWorldHint'   => false,
+		];
+	}
+
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, 'core.edit');
 		if ($this->pbckAdminBase() === null) {
 			return $this->pbckNotInstalledError();
 		}
@@ -115,6 +128,10 @@ final class SetRowColumnsTool extends AbstractTool
 				'ok'    => false,
 				'error' => sprintf('No row with id %d in %s.', $pageId, $this->pbckTable('pages')),
 			], true);
+		}
+
+		if ($refused = $this->pbckRefuseCheckedOut($page, $actor, $arguments)) {
+			return $refused;
 		}
 
 		$html = (string) ($page['htmlcode'] ?? '');

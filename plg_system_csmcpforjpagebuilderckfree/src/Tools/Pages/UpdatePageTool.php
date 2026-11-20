@@ -106,8 +106,20 @@ final class UpdatePageTool extends AbstractTool
 
 	public function getRequiredPermission(): string { return 'write'; }
 
+	/** Overwrites existing page content, so tell the AI app it is destructive. */
+	public function getMcpAnnotations(): array
+	{
+		return [
+			'readOnlyHint'    => false,
+			'destructiveHint' => true,
+			'idempotentHint'  => false,
+			'openWorldHint'   => false,
+		];
+	}
+
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, 'core.edit');
 		if ($this->pbckAdminBase() === null) {
 			return $this->pbckNotInstalledError();
 		}
@@ -160,7 +172,7 @@ final class UpdatePageTool extends AbstractTool
 		$warnings = [];
 
 		if (\array_key_exists('title', $arguments)) {
-			$title = trim((string) $arguments['title']);
+			$title = $this->pbckCleanTitle((string) $arguments['title']);
 
 			if ($title === '') {
 				return ToolResult::json([
@@ -219,6 +231,10 @@ final class UpdatePageTool extends AbstractTool
 				], true);
 			}
 
+			if ($state !== (int) $existing['state']) {
+				$this->pbckRequire($actor, 'core.edit.state');
+			}
+
 			$data['state'] = $state;
 		}
 
@@ -227,6 +243,10 @@ final class UpdatePageTool extends AbstractTool
 
 			if ($params instanceof ToolResult) {
 				return $params;
+			}
+
+			if (($bad = $this->pbckCheckParams($params)) !== null) {
+				return $bad;
 			}
 
 			$data['params'] = $params;

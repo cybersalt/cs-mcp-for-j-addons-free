@@ -102,6 +102,7 @@ final class ListFontsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor);
 		$base = $this->pbckAdminBase();
 
 		if ($base === null) {

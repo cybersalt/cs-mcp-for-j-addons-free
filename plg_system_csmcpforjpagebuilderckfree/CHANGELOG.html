@@ -1,9 +1,15 @@
 <div class="changelog-container">
 <h1>📋 MCP for Page Builder CK — Changelog</h1>
-<h2>📝 Unreleased (ships with this add-on's next release)</h2>
+<h2>🚀 Version 1.0.4 (November 20, 2026)</h2>
 <ul>
 <li>📝 <strong>Uses the core extension's current name.</strong> The core installs as "CS MCP for J" (its Joomla Extensions Directory listing name) and shows as "MCP for J" in the Components menu; it was "MCP for Joomla". The install and update messages, and the plugin description where it names the core, now say so. No tool behaves differently.</li>
 <li>🔧 <strong>Joomla's Changelog button now works for this add-on.</strong> On System → Manage → Extensions it shows this add-on's release notes.</li>
+<li>🔒 <strong>Tighter permission checks.</strong> Each tool now also needs the matching permission in Page Builder CK itself, as its own screens do: "Access Administration Interface" to list things, "Edit" to read a page's, block's, style's or element's content or to change a page, "Create" to add or copy one, "Edit State" to publish or trash one (also when create or update sets the state), and "Delete" to delete one for good. A refusal says which permission is missing.</li>
+<li>🔒 <strong>Checked-out pages are left alone.</strong> Every tool that changes a page's content refuses while another user has the page checked out, as Page Builder CK's own screens do, so their next Save can't silently undo the change. Pass <code>force_checked_out: true</code> to write anyway.</li>
+<li>🔒 <strong>Safer file and error handling.</strong> <code>restore_pagebuilderck_backup</code> checks the snapshot path before it looks on disk and only restores a page's own snapshots (not those of saved elements), and error messages no longer include database details or server paths.</li>
+<li>🔒 <strong>Titles and heading tags are cleaned as Page Builder CK cleans them.</strong> HTML tags are removed from page titles, a page's title tag option must be h1–h6, div, p or span, and a page state must be published, unpublished, trashed or archived.</li>
+<li>🔧 <strong>Clearer hints for the AI app.</strong> <code>restore_pagebuilderck_backup</code>, <code>set_pagebuilderck_row_columns</code> and <code>update_pagebuilderck_page</code> are marked as tools that overwrite content.</li>
+<li>🐛 <strong>The snapshot list works.</strong> <code>list_pagebuilderck_backups</code> stopped with a type error as soon as a page had a snapshot. It now lists them.</li>
 </ul>
 <h2>🚀 Version 1.0.3 (October 20, 2026)</h2>
 <ul>

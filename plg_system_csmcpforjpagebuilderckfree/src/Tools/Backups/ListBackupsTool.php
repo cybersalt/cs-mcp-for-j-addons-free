@@ -135,6 +135,7 @@ final class ListBackupsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor);
 		$base = $this->pbckAdminBase();
 
 		if ($base === null) {
@@ -214,7 +215,7 @@ final class ListBackupsTool extends AbstractTool
 					continue;
 				}
 
-				$file = $this->describeFile($root, $dirPath, $name, $itemId);
+				$file = $this->describeFile($root, $dirPath, $name, (string) $itemId);
 
 				if ($file === null) {
 					$unparsed[] = $name;

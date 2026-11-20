@@ -104,6 +104,7 @@ final class DuplicatePageTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, 'core.create', 'core.edit');
 		if ($this->pbckAdminBase() === null) {
 			return $this->pbckNotInstalledError();
 		}
@@ -352,7 +353,7 @@ final class DuplicatePageTool extends AbstractTool
 	private function copyTitle(array $arguments, string $sourceTitle): string|ToolResult
 	{
 		if (\array_key_exists('title', $arguments)) {
-			$given = trim((string) $arguments['title']);
+			$given = $this->pbckCleanTitle((string) $arguments['title']);
 
 			if ($given === '') {
 				return ToolResult::json([

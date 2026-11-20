@@ -83,6 +83,7 @@ final class ValidateContentTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor);
 		if (($guard = $this->pbckContentGuard()) !== null) {
 			return $guard;
 		}
@@ -101,6 +102,8 @@ final class ValidateContentTool extends AbstractTool
 		}
 
 		if ($hasPage) {
+			// Reading a stored page's markup needs Edit, as Page Builder CK's builder does.
+			$this->pbckRequire($actor, 'core.edit');
 			$pageId = $this->pbckPageId($arguments);
 			$row    = $this->pbckLoadPageRow($pageId);
 

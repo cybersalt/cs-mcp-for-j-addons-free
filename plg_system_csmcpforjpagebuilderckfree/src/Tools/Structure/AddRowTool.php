@@ -79,6 +79,7 @@ final class AddRowTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'properties' => [
+				'force_checked_out' => $this->pbckForceCheckedOutSchema(),
 				'page_id'             => ['type' => 'integer', 'description' => 'Row id in #__pagebuilderck_pages.'],
 				'columns'             => ['type' => 'integer', 'description' => 'Number of columns to create, 1 to 12. Default 1. Ignored when widths is given.'],
 				'widths'              => [
@@ -101,6 +102,7 @@ final class AddRowTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor, 'core.edit');
 		if ($this->pbckAdminBase() === null) {
 			return $this->pbckNotInstalledError();
 		}
@@ -123,6 +125,10 @@ final class AddRowTool extends AbstractTool
 				'ok'    => false,
 				'error' => sprintf('No row with id %d in %s.', $pageId, $this->pbckTable('pages')),
 			], true);
+		}
+
+		if ($refused = $this->pbckRefuseCheckedOut($page, $actor, $arguments)) {
+			return $refused;
 		}
 
 		// --- geometry arguments ---------------------------------------------

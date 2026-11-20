@@ -78,6 +78,7 @@ final class ListStylesTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->pbckRequire($actor);
 		if ($this->pbckAdminBase() === null) {
 			return $this->pbckNotInstalledError();
 		}
